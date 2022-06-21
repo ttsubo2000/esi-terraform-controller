@@ -18,12 +18,12 @@ type ConfigurationSpec struct {
 	Remote string `json:"remote,omitempty"`
 
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Variable *runTime.RawExtension `json:"variable,omitempty"`
+	Variable runTime.RawExtension `json:"variable,omitempty"`
 
 	// Backend stores the state in a Kubernetes secret with locking done using a Lease resource.
 	// TODO(zzxwill) If a backend exists in HCL/JSON, this can be optional. Currently, if Backend is not set by users, it
 	// still will set by the controller, ignoring the settings in HCL/JSON backend
-	Backend *Backend `json:"backend,omitempty"`
+	Backend Backend `json:"backend,omitempty"`
 
 	// Path is the sub-directory of remote git repository.
 	Path string `json:"path,omitempty"`
@@ -103,14 +103,7 @@ func (c *Configuration) GetObjectKind() schema.ObjectKind {
 	return &c.TypeMeta
 }
 
-// ProviderSpec defines the desired state of Provider.
-type ProviderSpec struct {
-	// Provider is the cloud service provider, like `alibaba`
-	Provider string `json:"provider"`
-
-	// Region is cloud provider's region
-	Region string `json:"region,omitempty"`
-
-	// Credentials required to authenticate to this provider.
-	Credentials ProviderCredentials `json:"credentials"`
+// Costomized for this original program
+func (c *Configuration) GetGenerateName() string {
+	return c.TypeMeta.Kind
 }

@@ -3,33 +3,56 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/pkg/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
+	"github.com/pkg/errors"
 	"github.com/ttsubo/client-go/tools/cache"
+	providercred "github.com/ttsubo2000/esi-terraform-worker/controllers/provider"
+	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
 	"github.com/ttsubo2000/esi-terraform-worker/types"
 )
 
+const (
+	errGetCredentials = "failed to get credentials from the cloud provider"
+	errSettingStatus  = "failed to set status"
+)
+
 type ProviderReconciler struct {
+	Client cacheObj.Store
 }
 
 func (r *ProviderReconciler) Reconcile(ctx context.Context, req Request, indexer cache.Indexer) (Result, error) {
-	klog.Info("Starting Reconcile ...")
-	obj, exists, err := indexer.GetByKey(req.NamespacedName)
+	klog.InfoS("reconciling Terraform Provider...", "NamespacedName", req.NamespacedName)
+
+	obj, _, err := indexer.GetByKey(req.NamespacedName)
 	if err != nil {
-		klog.Errorf("Fetching object with key %s from store failed with %v", req.NamespacedName, err)
-		return Result{RequeueAfter: 3 * time.Second}, errors.Wrap(err, "failed to fetch object")
+		if kerrors.IsNotFound(err) {
+			err = nil
+		}
+		return Result{}, err
+	}
+	provider := obj.(*types.Provider)
+
+	if _, err := providercred.GetProviderCredentials(ctx, r.Client, provider, provider.Spec.Region); err != nil {
+		provider.Status.State = types.ProviderIsNotReady
+		provider.Status.Message = fmt.Sprintf("%s: %s", errGetCredentials, err.Error())
+		klog.ErrorS(err, errGetCredentials, "Provider", req.NamespacedName)
+		if updateErr := r.Client.Update(provider); updateErr != nil {
+			klog.ErrorS(updateErr, errSettingStatus, "Provider", req.NamespacedName)
+			return Result{}, errors.Wrap(updateErr, errSettingStatus)
+		}
+		return Result{}, errors.Wrap(err, errGetCredentials)
 	}
 
-	if !exists {
-		// Below we will warm up our cache with a sample, so that we will see a delete for one sample
-		fmt.Printf("Sample %s does not exist anymore\n", req.NamespacedName)
-	} else {
-		// Note that you also have to check the uid if you have a local controlled resource, which
-		// is dependent on the actual instance, to detect that a sample was recreated with the same name
-		fmt.Printf("Sync/Add/Update for Sample [%v]\n", obj.(*types.Provider))
+	provider.Status = types.ProviderStatus{
+		State: types.ProviderIsReady,
 	}
+	if updateErr := r.Client.Update(provider); updateErr != nil {
+		klog.ErrorS(updateErr, errSettingStatus, "Provider", req.NamespacedName)
+		return Result{}, errors.Wrap(updateErr, errSettingStatus)
+	}
+
 	return Result{}, nil
 }

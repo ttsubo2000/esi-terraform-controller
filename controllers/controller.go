@@ -119,7 +119,6 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 		return false
 	}
 
-	klog.Infof("Fetching object with [key:%s] on %s controller", obj, c.Name)
 	defer c.Queue.Done(obj)
 
 	c.reconcileHandler(ctx, obj)
@@ -164,7 +163,6 @@ func NewController(name string, r Reconciler, informerCh chan cache.Controller) 
 	indexer, informer := cache.NewIndexerInformer(&cache.ListWatch{}, &types.Configuration{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(obj)
-			klog.Infof("add workerqueue [key:%v] on %s controller", key, name)
 			if err == nil {
 				queue.Add(key)
 			}

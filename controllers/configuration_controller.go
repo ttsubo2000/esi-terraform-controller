@@ -9,12 +9,14 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/ttsubo/client-go/tools/cache"
+	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
 	"github.com/ttsubo2000/esi-terraform-worker/types"
 )
 
 // ConfigurationReconciler reconciles a Configuration object.
 type ConfigurationReconciler struct {
 	ProviderName string
+	Client       cacheObj.Store
 }
 
 func (r *ConfigurationReconciler) Reconcile(ctx context.Context, req Request, indexer cache.Indexer) (Result, error) {
