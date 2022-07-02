@@ -37,6 +37,10 @@ func (c *threadSafeMap) Update(key string, obj interface{}) {
 		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Secret))
 	case *types.Configuration:
 		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Configuration))
+	case *types.ConfigMap:
+		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.ConfigMap))
+	case *types.Job:
+		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Job))
 	}
 }
 

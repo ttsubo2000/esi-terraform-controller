@@ -123,7 +123,11 @@ func (c *Cache) Get(obj interface{}) (item interface{}, exists bool, err error) 
 // GetByKey is completely threadsafe as long as you treat all items as immutable.
 func (c *Cache) GetByKey(key string) (item interface{}, exists bool, err error) {
 	item, exists = c.cacheStorage.Get(key)
-	return item, exists, nil
+	if exists == false {
+		return item, exists, fmt.Errorf("cannot find obj from store... ")
+	} else {
+		return item, exists, nil
+	}
 }
 
 // NewStore returns a Store implemented simply with a map and a lock.

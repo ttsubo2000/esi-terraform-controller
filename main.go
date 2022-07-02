@@ -42,6 +42,7 @@ func main() {
 
 	go func() {
 		informer := <-informerConfigChan
+		time.Sleep(1 * time.Second)
 		obj := &types.Configuration{
 			TypeMeta: metav1.TypeMeta{
 				Kind: "Configuration",
@@ -51,8 +52,8 @@ func main() {
 				Namespace: v1.NamespaceDefault,
 			},
 			Spec: types.ConfigurationSpec{
-				HCL: "",
-				Backend: types.Backend{
+				HCL: "resource \"google_storage_bucket\" \"bucket\" {\n  name = var.bucket\n}\n\noutput \"BUCKET_URL\" {\n  value = google_storage_bucket.bucket.url\n}\n\nvariable \"bucket\" {\n  default = \"vela-website\"\n}\n",
+				Backend: &types.Backend{
 					SecretSuffix:    "oss",
 					InClusterConfig: true,
 				},
@@ -63,14 +64,13 @@ func main() {
 	}()
 
 	go func() {
-		//		time.Sleep(1 * time.Second)
 		informer := <-informerProviderChan
 		obj := &types.Provider{
 			TypeMeta: metav1.TypeMeta{
 				Kind: "Provider",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "myProvider",
+				Name:      "default",
 				Namespace: v1.NamespaceDefault,
 			},
 			Spec: types.ProviderSpec{

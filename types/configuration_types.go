@@ -5,7 +5,6 @@ import (
 	runTime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	state "github.com/oam-dev/terraform-controller/api/types"
 	types "github.com/oam-dev/terraform-controller/api/types/crossplane-runtime"
 )
 
@@ -18,12 +17,12 @@ type ConfigurationSpec struct {
 	Remote string `json:"remote,omitempty"`
 
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Variable runTime.RawExtension `json:"variable,omitempty"`
+	Variable *runTime.RawExtension `json:"variable,omitempty"`
 
 	// Backend stores the state in a Kubernetes secret with locking done using a Lease resource.
 	// TODO(zzxwill) If a backend exists in HCL/JSON, this can be optional. Currently, if Backend is not set by users, it
 	// still will set by the controller, ignoring the settings in HCL/JSON backend
-	Backend Backend `json:"backend,omitempty"`
+	Backend *Backend `json:"backend,omitempty"`
 
 	// Path is the sub-directory of remote git repository.
 	Path string `json:"path,omitempty"`
@@ -62,15 +61,15 @@ type ConfigurationStatus struct {
 
 // ConfigurationApplyStatus is the status for Configuration apply
 type ConfigurationApplyStatus struct {
-	State   state.ConfigurationState `json:"state,omitempty"`
-	Message string                   `json:"message,omitempty"`
-	Outputs map[string]Property      `json:"outputs,omitempty"`
+	State   ConfigurationState  `json:"state,omitempty"`
+	Message string              `json:"message,omitempty"`
+	Outputs map[string]Property `json:"outputs,omitempty"`
 }
 
 // ConfigurationDestroyStatus is the status for Configuration destroy
 type ConfigurationDestroyStatus struct {
-	State   state.ConfigurationState `json:"state,omitempty"`
-	Message string                   `json:"message,omitempty"`
+	State   ConfigurationState `json:"state,omitempty"`
+	Message string             `json:"message,omitempty"`
 }
 
 // Property is the property for an output

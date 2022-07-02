@@ -1,0 +1,177 @@
+package configuration
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+	"strings"
+
+	crossplane "github.com/oam-dev/terraform-controller/api/types/crossplane-runtime"
+	"github.com/pkg/errors"
+	"github.com/ttsubo2000/esi-terraform-worker/controllers/provider"
+	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
+	"github.com/ttsubo2000/esi-terraform-worker/types"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/klog/v2"
+)
+
+const (
+	// GithubPrefix is the constant of GitHub domain
+	GithubPrefix = "https://github.com/"
+	// GithubKubeVelaContribPrefix is the prefix of GitHub repository of kubevela-contrib
+	GithubKubeVelaContribPrefix = "https://github.com/kubevela-contrib"
+	// GiteeTerraformSourceOrg is the Gitee organization of Terraform source
+	GiteeTerraformSourceOrg = "https://gitee.com/kubevela-terraform-source"
+	// GiteePrefix is the constant of Gitee domain
+	GiteePrefix = "https://gitee.com/"
+)
+
+const errGitHubBlockedNotBoolean = "the value of githubBlocked is not a boolean"
+
+// ValidConfigurationObject will validate a Configuration
+func ValidConfigurationObject(configuration *types.Configuration) (types.ConfigurationType, error) {
+	hcl := configuration.Spec.HCL
+	remote := configuration.Spec.Remote
+	switch {
+	case hcl == "" && remote == "":
+		return "", errors.New("spec.HCL or spec.Remote should be set")
+	case hcl != "" && remote != "":
+		return "", errors.New("spec.HCL and spec.Remote cloud not be set at the same time")
+	case hcl != "":
+		return types.ConfigurationHCL, nil
+	case remote != "":
+		return types.ConfigurationRemote, nil
+	}
+	return "", nil
+}
+
+// RenderConfiguration will compose the Terraform configuration with hcl/json and backend
+func RenderConfiguration(configuration *types.Configuration, terraformBackendNamespace string, configurationType types.ConfigurationType) (string, error) {
+	if configuration.Spec.Backend != nil {
+		if configuration.Spec.Backend.SecretSuffix == "" {
+			configuration.Spec.Backend.SecretSuffix = configuration.Name
+		}
+		configuration.Spec.Backend.InClusterConfig = true
+	} else {
+		configuration.Spec.Backend = &types.Backend{
+			SecretSuffix:    configuration.Name,
+			InClusterConfig: true,
+		}
+	}
+	backendTF, err := RenderTemplate(configuration.Spec.Backend, terraformBackendNamespace)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to prepare Terraform backend configuration")
+	}
+
+	switch configurationType {
+	case types.ConfigurationHCL:
+		completedConfiguration := configuration.Spec.HCL
+		completedConfiguration += "\n" + backendTF
+		return completedConfiguration, nil
+	case types.ConfigurationRemote:
+		return backendTF, nil
+	default:
+		return "", errors.New("Unsupported Configuration Type")
+	}
+}
+
+// SetRegion will set the region for Configuration
+func SetRegion(ctx context.Context, Client cacheObj.Store, namespace, name string, providerObj *types.Provider) (string, error) {
+	configuration, err := Get(ctx, Client, namespace, name)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get configuration")
+	}
+	if configuration.Spec.Region != "" {
+		return configuration.Spec.Region, nil
+	}
+
+	configuration.Spec.Region = providerObj.Spec.Region
+	return providerObj.Spec.Region, Update(ctx, Client, &configuration)
+}
+
+// Update will update the Configuration
+func Update(ctx context.Context, Client cacheObj.Store, configuration *types.Configuration) error {
+	return Client.Update(configuration)
+}
+
+// Get will get the Configuration
+func Get(ctx context.Context, Client cacheObj.Store, Namespace string, Name string) (types.Configuration, error) {
+	configuration := &types.Configuration{}
+	key := "Configuration" + "/" + Namespace + "/" + Name
+	obj, exists, err := Client.GetByKey(key)
+	if err != nil || !exists {
+		if kerrors.IsNotFound(err) {
+			klog.ErrorS(err, "unable to fetch Configuration", "NamespacedName", Namespace)
+		}
+		return *configuration, err
+	}
+	configuration = obj.(*types.Configuration)
+	return *configuration, nil
+}
+
+// IsDeletable will check whether the Configuration can be deleted immediately
+// If deletable, it means no external cloud resources are provisioned
+func IsDeletable(ctx context.Context, Client cacheObj.Store, configuration *types.Configuration) (bool, error) {
+	providerRef := GetProviderNamespacedName(configuration)
+	providerObj, err := provider.GetProviderFromConfiguration(ctx, Client, providerRef.Namespace, providerRef.Name)
+	if err != nil {
+		return false, err
+	}
+	// allow Configuration to delete when the Provider doesn't exist or is not ready, which means external cloud resources are
+	// not provisioned at all
+	if providerObj == nil || providerObj.Status.State == types.ProviderIsNotReady || configuration.Status.Apply.State == types.TerraformInitError {
+		return true, nil
+	}
+
+	if configuration.Status.Apply.State == types.ConfigurationProvisioningAndChecking {
+		warning := fmt.Sprintf("Destroy could not complete and needs to wait for Provision to complete first: %s", types.MessageCloudResourceProvisioningAndChecking)
+		klog.Warning(warning)
+		return false, errors.New(warning)
+	}
+
+	return false, nil
+}
+
+// ReplaceTerraformSource will replace the Terraform source from GitHub to Gitee
+func ReplaceTerraformSource(remote string, githubBlockedStr string) string {
+	klog.InfoS("Whether GitHub is blocked", "githubBlocked", githubBlockedStr)
+	githubBlocked, err := strconv.ParseBool(githubBlockedStr)
+	if err != nil {
+		klog.Warningf(errGitHubBlockedNotBoolean, err)
+		return remote
+	}
+	klog.InfoS("Parsed GITHUB_BLOCKED env", "githubBlocked", githubBlocked)
+
+	if !githubBlocked {
+		return remote
+	}
+
+	if remote == "" {
+		return ""
+	}
+	if strings.HasPrefix(remote, GithubPrefix) {
+		var repo string
+		if strings.HasPrefix(remote, GithubKubeVelaContribPrefix) {
+			repo = strings.Replace(remote, GithubPrefix, GiteePrefix, 1)
+		} else {
+			tmp := strings.Split(strings.Replace(remote, GithubPrefix, "", 1), "/")
+			if len(tmp) == 2 {
+				repo = GiteeTerraformSourceOrg + "/" + tmp[1]
+			}
+		}
+		klog.InfoS("New remote git", "Gitee", repo)
+		return repo
+	}
+	return remote
+}
+
+// GetProviderNamespacedName will get the provider namespaced name
+func GetProviderNamespacedName(configuration *types.Configuration) *crossplane.Reference {
+	if configuration.Spec.ProviderReference != nil {
+		return configuration.Spec.ProviderReference
+	}
+	return &crossplane.Reference{
+		Name:      provider.DefaultName,
+		Namespace: provider.DefaultNamespace,
+	}
+}

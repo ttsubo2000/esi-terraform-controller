@@ -8,9 +8,7 @@ import (
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/oam-dev/terraform-controller/api/v1beta1"
 	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
 	"github.com/ttsubo2000/esi-terraform-worker/types"
 )
@@ -130,9 +128,11 @@ func GetProviderCredentials(ctx context.Context, Client cacheObj.Store, provider
 // 1) (nil, err): hit an issue to find the provider
 // 2) (nil, nil): provider not found
 // 3) (provider, nil): provider found
-func GetProviderFromConfiguration(ctx context.Context, k8sClient client.Client, namespace, name string) (*v1beta1.Provider, error) {
-	var provider = &v1beta1.Provider{}
-	if err := k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, provider); err != nil {
+func GetProviderFromConfiguration(ctx context.Context, Client cacheObj.Store, namespace, name string) (*types.Provider, error) {
+	var provider = &types.Provider{}
+	key := "Provider" + "/" + namespace + "/" + name
+	obj, exists, err := Client.GetByKey(key)
+	if err != nil || !exists {
 		if kerrors.IsNotFound(err) {
 			return nil, nil
 		}
@@ -140,6 +140,7 @@ func GetProviderFromConfiguration(ctx context.Context, k8sClient client.Client, 
 		klog.ErrorS(err, errMsg, "Name", name)
 		return nil, errors.Wrap(err, errMsg)
 	}
+	provider = obj.(*types.Provider)
 	return provider, nil
 }
 
