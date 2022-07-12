@@ -12,8 +12,8 @@ import (
 	"github.com/ttsubo2000/esi-terraform-worker/manager"
 	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
 	"github.com/ttsubo2000/esi-terraform-worker/types"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runTime "k8s.io/apimachinery/pkg/runtime"
 )
 
 func main() {
@@ -49,13 +49,15 @@ func main() {
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "myConfiguration",
-				Namespace: v1.NamespaceDefault,
+				Namespace: "default",
 			},
 			Spec: types.ConfigurationSpec{
 				HCL: "resource \"google_storage_bucket\" \"bucket\" {\n  name = var.bucket\n}\n\noutput \"BUCKET_URL\" {\n  value = google_storage_bucket.bucket.url\n}\n\nvariable \"bucket\" {\n  default = \"vela-website\"\n}\n",
+				Variable: &runTime.RawExtension{
+					Raw: []byte(`{"bucket":"vela-website", "acl":"private"}`),
+				},
 				Backend: &types.Backend{
-					SecretSuffix:    "oss",
-					InClusterConfig: true,
+					Path: "/tmp/terraform.tfstate",
 				},
 			},
 		}
@@ -71,7 +73,7 @@ func main() {
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "default",
-				Namespace: v1.NamespaceDefault,
+				Namespace: "default",
 			},
 			Spec: types.ProviderSpec{
 				Provider: "gcp",

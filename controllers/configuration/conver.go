@@ -30,10 +30,8 @@ import (
 
 var backendTF = `
 terraform {
-  backend "kubernetes" {
-    secret_suffix     = "{{.SecretSuffix}}"
-    in_cluster_config = {{.InClusterConfig}}
-    namespace         = "{{.Namespace}}"
+  backend "local" {
+    path     = "{{.Path}}"
   }
 }
 `
@@ -57,9 +55,7 @@ func RawExtension2Map(raw *runtime.RawExtension) (map[string]interface{}, error)
 }
 
 type backendVars struct {
-	SecretSuffix    string
-	InClusterConfig bool
-	Namespace       string
+	Path string
 }
 
 // RenderTemplate renders Backend template
@@ -70,9 +66,7 @@ func RenderTemplate(backend *types.Backend, namespace string) (string, error) {
 	}
 
 	templateVars := backendVars{
-		SecretSuffix:    backend.SecretSuffix,
-		InClusterConfig: backend.InClusterConfig,
-		Namespace:       namespace,
+		Path: backend.Path,
 	}
 	var wr bytes.Buffer
 	err = tmpl.Execute(&wr, templateVars)

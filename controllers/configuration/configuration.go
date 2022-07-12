@@ -48,14 +48,12 @@ func ValidConfigurationObject(configuration *types.Configuration) (types.Configu
 // RenderConfiguration will compose the Terraform configuration with hcl/json and backend
 func RenderConfiguration(configuration *types.Configuration, terraformBackendNamespace string, configurationType types.ConfigurationType) (string, error) {
 	if configuration.Spec.Backend != nil {
-		if configuration.Spec.Backend.SecretSuffix == "" {
-			configuration.Spec.Backend.SecretSuffix = configuration.Name
+		if configuration.Spec.Backend.Path == "" {
+			configuration.Spec.Backend.Path = "/tmp/terraform.tfstate"
 		}
-		configuration.Spec.Backend.InClusterConfig = true
 	} else {
 		configuration.Spec.Backend = &types.Backend{
-			SecretSuffix:    configuration.Name,
-			InClusterConfig: true,
+			Path: "/tmp/terraform.tfstate",
 		}
 	}
 	backendTF, err := RenderTemplate(configuration.Spec.Backend, terraformBackendNamespace)

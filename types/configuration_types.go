@@ -79,10 +79,7 @@ type Property struct {
 
 // Backend stores the state in a Kubernetes secret with locking done using a Lease resource.
 type Backend struct {
-	// SecretSuffix used when creating secrets. Secrets will be named in the format: tfstate-{workspace}-{secretSuffix}
-	SecretSuffix string `json:"secretSuffix,omitempty"`
-	// InClusterConfig Used to authenticate to the cluster from inside a pod. Only `true` is allowed
-	InClusterConfig bool `json:"inClusterConfig,omitempty"`
+	Path string `json:"secretSuffix,omitempty"`
 }
 
 // Configuration is the Schema for the configurations API

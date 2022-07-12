@@ -255,14 +255,8 @@ func initTFConfigurationMeta(req Request, configuration *types.Configuration) *T
 
 	// Check the existence of Terraform state secret which is used to store TF state file. For detailed information,
 	// please refer to https://www.terraform.io/docs/language/settings/backends/kubernetes.html#configuration-variables
-	var backendSecretSuffix string
-	if configuration.Spec.Backend != nil && configuration.Spec.Backend.SecretSuffix != "" {
-		backendSecretSuffix = configuration.Spec.Backend.SecretSuffix
-	} else {
-		backendSecretSuffix = configuration.Name
-	}
-	// Secrets will be named in the format: tfstate-{workspace}-{secret_suffix}
-	meta.BackendSecretName = fmt.Sprintf(TFBackendSecret, terraformWorkspace, backendSecretSuffix)
+	// Secrets will be named in the format: tfstate-{workspace}-{configuration.Name}
+	meta.BackendSecretName = fmt.Sprintf(TFBackendSecret, terraformWorkspace, configuration.Name)
 
 	return meta
 }
