@@ -4,6 +4,8 @@ import (
 	"sync"
 
 	"github.com/ttsubo2000/esi-terraform-worker/types"
+	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -41,6 +43,12 @@ func (c *threadSafeMap) Update(key string, obj interface{}) {
 		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.ConfigMap))
 	case *types.Job:
 		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Job))
+	case *rbacv1.ClusterRole:
+		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*rbacv1.ClusterRole))
+	case *v1.ServiceAccount:
+		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*v1.ServiceAccount))
+	case *rbacv1.ClusterRoleBinding:
+		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*rbacv1.ClusterRoleBinding))
 	}
 }
 

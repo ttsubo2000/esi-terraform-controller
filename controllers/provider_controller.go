@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
 	"github.com/pkg/errors"
@@ -26,9 +25,9 @@ type ProviderReconciler struct {
 func (r *ProviderReconciler) Reconcile(ctx context.Context, req Request, indexer cache.Indexer) (Result, error) {
 	klog.InfoS("reconciling Terraform Provider...", "NamespacedName", req.NamespacedName)
 
-	obj, _, err := indexer.GetByKey(req.NamespacedName)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
+	obj, exists, err := indexer.GetByKey(req.NamespacedName)
+	if err != nil || !exists {
+		if !exists {
 			err = nil
 		}
 		return Result{}, err

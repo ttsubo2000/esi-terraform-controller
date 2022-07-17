@@ -8,7 +8,6 @@ import (
 	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -38,7 +37,7 @@ func createTerraformExecutorClusterRole(ctx context.Context, Client cacheObj.Sto
 	key := "ClusterRole" + "/" + "Default" + "/" + clusterRoleName
 	_, exists, err := Client.GetByKey(key)
 	if err != nil || !exists {
-		if kerrors.IsNotFound(err) {
+		if !exists {
 			if err := Client.Add(&clusterRole); err != nil {
 				return errors.Wrap(err, "failed to create ClusterRole for Terraform executor")
 			}
@@ -72,9 +71,9 @@ func createTerraformExecutorClusterRoleBinding(ctx context.Context, Client cache
 		},
 	}
 	key := "ClusterRole" + "/" + namespace + "/" + crbName
-	_, _, err := Client.GetByKey(key)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
+	_, exists, err := Client.GetByKey(key)
+	if err != nil || !exists {
+		if !exists {
 			if err := Client.Add(&clusterRoleBinding); err != nil {
 				return errors.Wrap(err, "failed to create ClusterRoleBinding for Terraform executor")
 			}
@@ -95,9 +94,9 @@ func createTerraformExecutorServiceAccount(ctx context.Context, Client cacheObj.
 		},
 	}
 	key := "ServiceAccount" + "/" + namespace + "/" + serviceAccountName
-	_, _, err := Client.GetByKey(key)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
+	_, exists, err := Client.GetByKey(key)
+	if err != nil || !exists {
+		if !exists {
 			if err := Client.Add(&serviceAccount); err != nil {
 				return errors.Wrap(err, "failed to create ServiceAccount for Terraform executor")
 			}

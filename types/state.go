@@ -57,8 +57,8 @@ const (
 	MessageCloudResourceDeployed = "Cloud resources are deployed and ready to use"
 	// MessageCloudResourceDestroying is the message when cloud resource is being destroyed
 	MessageCloudResourceDestroying = "Cloud resources is being destroyed..."
-	// ErrProviderNotFound means provider not found
-	ErrProviderNotFound = "provider not found"
+	// ErrProviderNotFound means ErrProviderNotFound
+	ErrProviderNotFound = "ErrProviderNotFound:"
 	// ErrProviderNotReady means provider object is not ready
 	ErrProviderNotReady = "Provider is not ready"
 	// ConfigurationReloadingAsHCLChanged means Configuration changed and needs reloading

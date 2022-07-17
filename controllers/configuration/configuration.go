@@ -11,7 +11,6 @@ import (
 	"github.com/ttsubo2000/esi-terraform-worker/controllers/provider"
 	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
 	"github.com/ttsubo2000/esi-terraform-worker/types"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 )
 
@@ -98,7 +97,7 @@ func Get(ctx context.Context, Client cacheObj.Store, Namespace string, Name stri
 	key := "Configuration" + "/" + Namespace + "/" + Name
 	obj, exists, err := Client.GetByKey(key)
 	if err != nil || !exists {
-		if kerrors.IsNotFound(err) {
+		if !exists {
 			klog.ErrorS(err, "unable to fetch Configuration", "NamespacedName", Namespace)
 		}
 		return *configuration, err

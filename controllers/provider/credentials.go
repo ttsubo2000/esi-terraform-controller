@@ -6,7 +6,6 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/sts"
 	"github.com/ghodss/yaml"
 	"github.com/pkg/errors"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
 	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
@@ -133,7 +132,7 @@ func GetProviderFromConfiguration(ctx context.Context, Client cacheObj.Store, na
 	key := "Provider" + "/" + namespace + "/" + name
 	obj, exists, err := Client.GetByKey(key)
 	if err != nil || !exists {
-		if kerrors.IsNotFound(err) {
+		if !exists {
 			return nil, nil
 		}
 		errMsg := "failed to get Provider object"
