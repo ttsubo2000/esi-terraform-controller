@@ -79,6 +79,7 @@ const (
 type ConfigurationReconciler struct {
 	ProviderName string
 	Client       cacheObj.Store
+	Informer     cache.Controller
 }
 
 func (r *ConfigurationReconciler) Reconcile(ctx context.Context, req Request, indexer cache.Indexer) (Result, error) {
@@ -91,7 +92,7 @@ func (r *ConfigurationReconciler) Reconcile(ctx context.Context, req Request, in
 	}
 	configuration := obj.(*types.Configuration)
 
-	meta := initTFConfigurationMeta(req, configuration)
+	meta := initTFConfigurationMeta(req, configuration, r.Informer)
 
 	// add finalizer
 	var isDeleting = !configuration.ObjectMeta.DeletionTimestamp.IsZero()
@@ -215,26 +216,28 @@ type TFConfigurationMeta struct {
 	ResourcesRequestsCPUQuantity    resource.Quantity
 	ResourcesRequestsMemory         string
 	ResourcesRequestsMemoryQuantity resource.Quantity
+
+	// Informer for Job Resource
+	Informer cache.Controller
 }
 
-func initTFConfigurationMeta(req Request, configuration *types.Configuration) *TFConfigurationMeta {
-	var Namespace, Name string
+func initTFConfigurationMeta(req Request, configuration *types.Configuration, informer cache.Controller) *TFConfigurationMeta {
+	var Name string
 
 	NamespacedName := strings.Split(req.NamespacedName, "/")
 	if len(NamespacedName) != 2 {
-		Namespace = ""
 		Name = ""
 	} else {
-		Namespace = NamespacedName[0]
 		Name = NamespacedName[1]
 	}
 	var meta = &TFConfigurationMeta{
-		Namespace:           Namespace,
+		Namespace:           "default",
 		Name:                Name,
-		ConfigurationCMName: fmt.Sprintf(TFInputConfigMapName, Name),
+		ConfigurationCMName: "tf-Configuration",
 		VariableSecretName:  fmt.Sprintf(TFVariableSecret, Name),
 		ApplyJobName:        Name + "-" + string(TerraformApply),
 		DestroyJobName:      Name + "-" + string(TerraformDestroy),
+		Informer:            informer,
 	}
 
 	// githubBlocked mark whether GitHub is blocked in the cluster
@@ -635,6 +638,7 @@ func (meta *TFConfigurationMeta) assembleAndTriggerJob(ctx context.Context, Clie
 	}
 
 	job := meta.assembleTerraformJob(executionType)
+	meta.Informer.InjectWorkerQueue(job)
 	return Client.Add(job)
 }
 
@@ -1007,6 +1011,7 @@ func (meta *TFConfigurationMeta) prepareTFVariables(configuration *types.Configu
 	}
 	meta.Envs = envs
 	meta.VariableSecretData = data
+	klog.Infof("### meta.VariableSecretData=[%#v]\n", data)
 
 	return nil
 }
@@ -1087,7 +1092,7 @@ func (meta *TFConfigurationMeta) prepareTFInputConfigurationData() map[string]st
 	case types.ConfigurationRemote:
 		dataName = "terraform-backend.tf"
 	}
-	data := map[string]string{dataName: meta.CompleteConfiguration, "kubeconfig": ""}
+	data := map[string]string{dataName: meta.CompleteConfiguration}
 	return data
 }
 

@@ -21,6 +21,7 @@ func main() {
 	informerConfigChan := make(chan cache.Controller, 1)
 	informerProviderChan := make(chan cache.Controller, 1)
 	informerSecretChan := make(chan cache.Controller, 1)
+	informerJobChan := make(chan cache.Controller, 1)
 
 	go func() {
 		informer := <-informerSecretChan
@@ -48,7 +49,7 @@ func main() {
 				Kind: "Configuration",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "myConfiguration",
+				Name:      "Configuration",
 				Namespace: "default",
 			},
 			Spec: types.ConfigurationSpec{
@@ -96,9 +97,11 @@ func main() {
 	}()
 
 	mgr := manager.NewManager()
-	mgr.Add(controllers.NewController("configuration", &controllers.ConfigurationReconciler{Client: clientState}, informerConfigChan))
-	mgr.Add(controllers.NewController("provider", &controllers.ProviderReconciler{Client: clientState}, informerProviderChan))
-	mgr.Add(controllers.NewController("secret", &controllers.SecretReconciler{Client: clientState}, informerSecretChan))
+	mgr.Add(controllers.NewController("job", &controllers.JobReconciler{Client: clientState}, &types.Job{}, informerJobChan))
+	JobInformer := <-informerJobChan
+	mgr.Add(controllers.NewController("configuration", &controllers.ConfigurationReconciler{Client: clientState, Informer: JobInformer}, &types.Configuration{}, informerConfigChan))
+	mgr.Add(controllers.NewController("provider", &controllers.ProviderReconciler{Client: clientState}, &types.Provider{}, informerProviderChan))
+	mgr.Add(controllers.NewController("secret", &controllers.SecretReconciler{Client: clientState}, &types.Secret{}, informerSecretChan))
 	if err := mgr.Start(manager.SetupSignalHandler()); err != nil {
 		klog.Error(err, "problem controller")
 		os.Exit(1)
