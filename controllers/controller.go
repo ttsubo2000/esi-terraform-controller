@@ -9,6 +9,7 @@ import (
 
 	"github.com/ttsubo/client-go/tools/cache"
 	"github.com/ttsubo/client-go/util/workqueue"
+	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -157,7 +158,7 @@ func (c *Controller) reconcileHandler(ctx context.Context, obj interface{}) {
 }
 
 // NewController creates a new Controller.
-func NewController(name string, r Reconciler, objType runtime.Object, informerCh chan cache.Controller) *Controller {
+func NewController(name string, r Reconciler, objType runtime.Object, clientState cacheObj.Store) *Controller {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	indexer, informer := cache.NewIndexerInformer(&cache.ListWatch{}, objType, 0, cache.ResourceEventHandlerFuncs{
@@ -181,6 +182,7 @@ func NewController(name string, r Reconciler, objType runtime.Object, informerCh
 		},
 	}, cache.Indexers{})
 
-	informerCh <- informer
+	clientState.AddInformer(objType, informer)
+
 	return newController(name, r, queue, indexer, informer)
 }

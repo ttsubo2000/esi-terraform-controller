@@ -79,7 +79,6 @@ const (
 type ConfigurationReconciler struct {
 	ProviderName string
 	Client       cacheObj.Store
-	Informer     cache.Controller
 }
 
 func (r *ConfigurationReconciler) Reconcile(ctx context.Context, req Request, indexer cache.Indexer) (Result, error) {
@@ -92,7 +91,7 @@ func (r *ConfigurationReconciler) Reconcile(ctx context.Context, req Request, in
 	}
 	configuration := obj.(*types.Configuration)
 
-	meta := initTFConfigurationMeta(req, configuration, r.Informer)
+	meta := initTFConfigurationMeta(req, configuration)
 
 	// add finalizer
 	var isDeleting = !configuration.ObjectMeta.DeletionTimestamp.IsZero()
@@ -221,7 +220,7 @@ type TFConfigurationMeta struct {
 	Informer cache.Controller
 }
 
-func initTFConfigurationMeta(req Request, configuration *types.Configuration, informer cache.Controller) *TFConfigurationMeta {
+func initTFConfigurationMeta(req Request, configuration *types.Configuration) *TFConfigurationMeta {
 	var Name string
 
 	NamespacedName := strings.Split(req.NamespacedName, "/")
@@ -237,7 +236,6 @@ func initTFConfigurationMeta(req Request, configuration *types.Configuration, in
 		VariableSecretName:  fmt.Sprintf(TFVariableSecret, Name),
 		ApplyJobName:        Name + "-" + string(TerraformApply),
 		DestroyJobName:      Name + "-" + string(TerraformDestroy),
-		Informer:            informer,
 	}
 
 	// githubBlocked mark whether GitHub is blocked in the cluster
@@ -638,7 +636,6 @@ func (meta *TFConfigurationMeta) assembleAndTriggerJob(ctx context.Context, Clie
 	}
 
 	job := meta.assembleTerraformJob(executionType)
-	meta.Informer.InjectWorkerQueue(job)
 	return Client.Add(job)
 }
 

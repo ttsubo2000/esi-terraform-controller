@@ -3,7 +3,13 @@ package cache
 import (
 	"fmt"
 
+	"github.com/ttsubo/client-go/tools/cache"
+	"github.com/ttsubo2000/esi-terraform-worker/types"
+	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog/v2"
 )
 
 // Store is a generic object storage and processing interface.
@@ -26,6 +32,8 @@ type Store interface {
 
 	// GetByKey returns the accumulator associated with the given key
 	GetByKey(key string) (item interface{}, exists bool, err error)
+
+	AddInformer(obj runtime.Object, informer cache.Controller)
 }
 
 // KeyFunc knows how to make a key from an object. Implementations should be deterministic.
@@ -69,6 +77,12 @@ type Cache struct {
 	// keyFunc is used to make the key for objects stored in and retrieved from items, and
 	// should be deterministic.
 	keyFunc KeyFunc
+
+	// setup informer
+	InformerConfig   cache.Controller
+	InformerProvider cache.Controller
+	InformerSecret   cache.Controller
+	InformerJob      cache.Controller
 }
 
 //var _ Store = &cache{}
@@ -80,6 +94,29 @@ func (c *Cache) Add(obj interface{}) error {
 		return KeyError{obj, err}
 	}
 	c.cacheStorage.Add(key, obj)
+
+	switch obj.(type) {
+	case *types.Provider:
+		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Provider))
+		c.InformerProvider.InjectWorkerQueue(obj)
+	case *types.Secret:
+		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Secret))
+		c.InformerSecret.InjectWorkerQueue(obj)
+	case *types.Configuration:
+		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Configuration))
+		c.InformerConfig.InjectWorkerQueue(obj)
+	case *types.Job:
+		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Job))
+		c.InformerJob.InjectWorkerQueue(obj)
+	case *types.ConfigMap:
+		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.ConfigMap))
+	case *rbacv1.ClusterRole:
+		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*rbacv1.ClusterRole))
+	case *v1.ServiceAccount:
+		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*v1.ServiceAccount))
+	case *rbacv1.ClusterRoleBinding:
+		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*rbacv1.ClusterRoleBinding))
+	}
 	return nil
 }
 
@@ -127,6 +164,20 @@ func (c *Cache) GetByKey(key string) (item interface{}, exists bool, err error) 
 		return item, exists, fmt.Errorf("cannot find obj from store... ")
 	} else {
 		return item, exists, nil
+	}
+}
+
+// Add Informer
+func (c *Cache) AddInformer(obj runtime.Object, informer cache.Controller) {
+	switch obj.(type) {
+	case *types.Secret:
+		c.InformerSecret = informer
+	case *types.Provider:
+		c.InformerProvider = informer
+	case *types.Configuration:
+		c.InformerConfig = informer
+	case *types.Job:
+		c.InformerJob = informer
 	}
 }
 

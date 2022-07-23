@@ -2,11 +2,6 @@ package cache
 
 import (
 	"sync"
-
-	"github.com/ttsubo2000/esi-terraform-worker/types"
-	v1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/klog/v2"
 )
 
 // ThreadSafeStore is an interface that can access to a storage backend.
@@ -32,24 +27,6 @@ func (c *threadSafeMap) Update(key string, obj interface{}) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.items[key] = obj
-	switch obj.(type) {
-	case *types.Provider:
-		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Provider))
-	case *types.Secret:
-		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Secret))
-	case *types.Configuration:
-		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Configuration))
-	case *types.ConfigMap:
-		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.ConfigMap))
-	case *types.Job:
-		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Job))
-	case *rbacv1.ClusterRole:
-		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*rbacv1.ClusterRole))
-	case *v1.ServiceAccount:
-		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*v1.ServiceAccount))
-	case *rbacv1.ClusterRoleBinding:
-		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*rbacv1.ClusterRoleBinding))
-	}
 }
 
 func (c *threadSafeMap) Delete(key string) {

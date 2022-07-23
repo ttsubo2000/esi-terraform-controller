@@ -7,7 +7,6 @@ import (
 	"k8s.io/klog/v2"
 
 	crossplanetypes "github.com/oam-dev/terraform-controller/api/types/crossplane-runtime"
-	"github.com/ttsubo/client-go/tools/cache"
 	"github.com/ttsubo2000/esi-terraform-worker/controllers"
 	"github.com/ttsubo2000/esi-terraform-worker/manager"
 	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
@@ -18,13 +17,9 @@ import (
 
 func main() {
 	clientState := cacheObj.NewStore(cacheObj.MetaNamespaceKeyFunc)
-	informerConfigChan := make(chan cache.Controller, 1)
-	informerProviderChan := make(chan cache.Controller, 1)
-	informerSecretChan := make(chan cache.Controller, 1)
-	informerJobChan := make(chan cache.Controller, 1)
 
 	go func() {
-		informer := <-informerSecretChan
+		time.Sleep(1 * time.Second)
 		obj := &types.Secret{
 			TypeMeta: metav1.TypeMeta{
 				Kind: "Secret",
@@ -38,12 +33,10 @@ func main() {
 			},
 		}
 		clientState.Add(obj)
-		informer.InjectWorkerQueue(obj)
 	}()
 
 	go func() {
-		informer := <-informerConfigChan
-		time.Sleep(1 * time.Second)
+		time.Sleep(5 * time.Second)
 		obj := &types.Configuration{
 			TypeMeta: metav1.TypeMeta{
 				Kind: "Configuration",
@@ -63,11 +56,10 @@ func main() {
 			},
 		}
 		clientState.Add(obj)
-		informer.InjectWorkerQueue(obj)
 	}()
 
 	go func() {
-		informer := <-informerProviderChan
+		time.Sleep(2 * time.Second)
 		obj := &types.Provider{
 			TypeMeta: metav1.TypeMeta{
 				Kind: "Provider",
@@ -91,20 +83,16 @@ func main() {
 				},
 			},
 		}
-		time.Sleep(1 * time.Second)
 		clientState.Add(obj)
-		informer.InjectWorkerQueue(obj)
 	}()
 
 	mgr := manager.NewManager()
-	mgr.Add(controllers.NewController("job", &controllers.JobReconciler{Client: clientState}, &types.Job{}, informerJobChan))
-	JobInformer := <-informerJobChan
-	mgr.Add(controllers.NewController("configuration", &controllers.ConfigurationReconciler{Client: clientState, Informer: JobInformer}, &types.Configuration{}, informerConfigChan))
-	mgr.Add(controllers.NewController("provider", &controllers.ProviderReconciler{Client: clientState}, &types.Provider{}, informerProviderChan))
-	mgr.Add(controllers.NewController("secret", &controllers.SecretReconciler{Client: clientState}, &types.Secret{}, informerSecretChan))
+	mgr.Add(controllers.NewController("secret", &controllers.SecretReconciler{Client: clientState}, &types.Secret{}, clientState))
+	mgr.Add(controllers.NewController("provider", &controllers.ProviderReconciler{Client: clientState}, &types.Provider{}, clientState))
+	mgr.Add(controllers.NewController("configuration", &controllers.ConfigurationReconciler{Client: clientState}, &types.Configuration{}, clientState))
+	mgr.Add(controllers.NewController("job", &controllers.JobReconciler{Client: clientState}, &types.Job{}, clientState))
 	if err := mgr.Start(manager.SetupSignalHandler()); err != nil {
 		klog.Error(err, "problem controller")
 		os.Exit(1)
 	}
-	time.Sleep(1 * time.Second)
 }
