@@ -43,8 +43,9 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req Request, indexer cach
 	}
 
 	installer := &releases.ExactVersion{
-		Product: product.Terraform,
-		Version: version.Must(version.NewVersion("1.0.6")),
+		Product:    product.Terraform,
+		Version:    version.Must(version.NewVersion("1.2.6")),
+		InstallDir: "/tmp",
 	}
 
 	execPath, err := installer.Install(context.Background())
