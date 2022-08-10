@@ -50,26 +50,24 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req Request, indexer cach
 
 	execPath, err := installer.Install(context.Background())
 	if err != nil {
-		klog.Fatalf("error installing Terraform: %s", err)
+		klog.Errorf("error installing Terraform: %s", err)
 	}
 
 	workingDir := "./work"
 	tf, err := tfexec.NewTerraform(workingDir, execPath)
 	if err != nil {
-		klog.Fatalf("error running NewTerraform: %s", err)
+		klog.Errorf("error running NewTerraform: %s", err)
 	}
 
 	err = tf.Init(context.Background(), tfexec.Upgrade(true))
 	if err != nil {
-		klog.Fatalf("error running Init: %s", err)
+		klog.Errorf("error running Init: %s", err)
 	}
 
-	state, err := tf.Show(context.Background())
+	err = tf.Apply(context.Background())
 	if err != nil {
-		klog.Fatalf("error running Show: %s", err)
+		return Result{}, err
 	}
-
-	klog.Infof("state.FormatVersion:[%s]", state.FormatVersion)
 
 	return Result{}, nil
 }

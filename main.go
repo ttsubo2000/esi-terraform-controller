@@ -25,11 +25,11 @@ func main() {
 				Kind: "Secret",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "gcp-account-creds",
+				Name:      "vsphere-account-creds",
 				Namespace: "vela-system",
 			},
 			Data: map[string]string{
-				"credentials": "{}",
+				"credentials": "vSphereUser: aaa\nvSpherePassword: bbb",
 			},
 		}
 		clientState.Add(obj)
@@ -53,6 +53,12 @@ func main() {
 				Backend: &types.Backend{
 					Path: "/tmp/terraform.tfstate",
 				},
+				BaseConfigurationSpec: types.BaseConfigurationSpec{
+					ProviderReference: &crossplanetypes.Reference{
+						Name:      "vsphere",
+						Namespace: "default",
+					},
+				},
 			},
 		}
 		clientState.Add(obj)
@@ -65,17 +71,17 @@ func main() {
 				Kind: "Provider",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "default",
+				Name:      "vsphere",
 				Namespace: "default",
 			},
 			Spec: types.ProviderSpec{
-				Provider: "gcp",
-				Region:   "us-central1",
+				Provider: "vsphere",
+				Region:   "cn-beijing",
 				Credentials: types.ProviderCredentials{
 					Source: "Secret",
 					SecretRef: crossplanetypes.SecretKeySelector{
 						SecretReference: crossplanetypes.SecretReference{
-							Name:      "gcp-account-creds",
+							Name:      "vsphere-account-creds",
 							Namespace: "vela-system",
 						},
 						Key: "credentials",
