@@ -23,16 +23,17 @@ const (
 type CloudProvider string
 
 const (
-	alibaba CloudProvider = "alibaba"
-	aws     CloudProvider = "aws"
-	gcp     CloudProvider = "gcp"
-	tencent CloudProvider = "tencent"
-	azure   CloudProvider = "azure"
-	vsphere CloudProvider = "vsphere"
-	ec      CloudProvider = "ec"
-	ucloud  CloudProvider = "ucloud"
-	custom  CloudProvider = "custom"
-	baidu   CloudProvider = "baidu"
+	alibaba   CloudProvider = "alibaba"
+	aws       CloudProvider = "aws"
+	gcp       CloudProvider = "gcp"
+	tencent   CloudProvider = "tencent"
+	azure     CloudProvider = "azure"
+	vsphere   CloudProvider = "vsphere"
+	ec        CloudProvider = "ec"
+	ucloud    CloudProvider = "ucloud"
+	custom    CloudProvider = "custom"
+	baidu     CloudProvider = "baidu"
+	hashicups CloudProvider = "hashicups"
 )
 
 const (
@@ -109,6 +110,8 @@ func GetProviderCredentials(ctx context.Context, Client cacheObj.Store, provider
 			return getCustomCredentials(SecretDataByte, name, namespace)
 		case string(baidu):
 			return getBaiduCloudCredentials(SecretDataByte, name, namespace, region)
+		case string(hashicups):
+			return getHashicupsCredentials(SecretDataByte, name, namespace)
 		default:
 			errMsg := "unsupported provider"
 			klog.InfoS(errMsg, "Provider", provider.Spec.Provider)

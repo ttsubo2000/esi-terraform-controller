@@ -4,6 +4,7 @@ import (
 	"os"
 	"time"
 
+	"gopkg.in/yaml.v2"
 	"k8s.io/klog/v2"
 
 	crossplanetypes "github.com/oam-dev/terraform-controller/api/types/crossplane-runtime"
@@ -15,6 +16,27 @@ import (
 	runTime "k8s.io/apimachinery/pkg/runtime"
 )
 
+const hclContent = `|-
+  resource "hashicups_order" "edu" {
+    items {
+      coffee {
+        id = 3
+      }
+      quantity = 2
+    }
+    items {
+      coffee {
+        id = 2
+      }
+      quantity = 2
+    }
+  }
+ 
+  output "edu_order" {
+    value = hashicups_order.edu
+  }
+`
+
 func main() {
 	clientState := cacheObj.NewStore(cacheObj.MetaNamespaceKeyFunc)
 
@@ -25,11 +47,11 @@ func main() {
 				Kind: "Secret",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "vsphere-account-creds",
-				Namespace: "vela-system",
+				Name:      "hashicups-account-creds",
+				Namespace: "hashicups",
 			},
 			Data: map[string]string{
-				"credentials": "vSphereUser: aaa\nvSpherePassword: bbb",
+				"credentials": "HashicupsUser: education\nHashicupsPassword: test123",
 			},
 		}
 		clientState.Add(obj)
@@ -37,6 +59,14 @@ func main() {
 
 	go func() {
 		time.Sleep(5 * time.Second)
+		var body interface{}
+		if err := yaml.Unmarshal([]byte(hclContent), &body); err != nil {
+			panic(err)
+		}
+
+		hclContext := body.(string)
+		klog.Infof("### HCL=[%s]\n", hclContext)
+
 		obj := &types.Configuration{
 			TypeMeta: metav1.TypeMeta{
 				Kind: "Configuration",
@@ -46,16 +76,16 @@ func main() {
 				Namespace: "default",
 			},
 			Spec: types.ConfigurationSpec{
-				HCL: "resource \"google_storage_bucket\" \"bucket\" {\n  name = var.bucket\n}\n\noutput \"BUCKET_URL\" {\n  value = google_storage_bucket.bucket.url\n}\n\nvariable \"bucket\" {\n  default = \"vela-website\"\n}\n",
+				HCL: hclContext,
 				Variable: &runTime.RawExtension{
-					Raw: []byte(`{"bucket":"vela-website", "acl":"private"}`),
+					Raw: []byte(`{"variable1":"hoge", "variable2":"fuga"}`),
 				},
 				Backend: &types.Backend{
 					Path: "/tmp/terraform.tfstate",
 				},
 				BaseConfigurationSpec: types.BaseConfigurationSpec{
 					ProviderReference: &crossplanetypes.Reference{
-						Name:      "vsphere",
+						Name:      "hashicups",
 						Namespace: "default",
 					},
 				},
@@ -71,18 +101,17 @@ func main() {
 				Kind: "Provider",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "vsphere",
+				Name:      "hashicups",
 				Namespace: "default",
 			},
 			Spec: types.ProviderSpec{
-				Provider: "vsphere",
-				Region:   "cn-beijing",
+				Provider: "hashicups",
 				Credentials: types.ProviderCredentials{
 					Source: "Secret",
 					SecretRef: crossplanetypes.SecretKeySelector{
 						SecretReference: crossplanetypes.SecretReference{
-							Name:      "vsphere-account-creds",
-							Namespace: "vela-system",
+							Name:      "hashicups-account-creds",
+							Namespace: "hashicups",
 						},
 						Key: "credentials",
 					},
