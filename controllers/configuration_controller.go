@@ -24,7 +24,6 @@ import (
 	"github.com/ttsubo/client-go/tools/cache"
 	tfcfg "github.com/ttsubo2000/esi-terraform-worker/controllers/configuration"
 	"github.com/ttsubo2000/esi-terraform-worker/controllers/provider"
-	"github.com/ttsubo2000/esi-terraform-worker/controllers/terraform"
 	"github.com/ttsubo2000/esi-terraform-worker/controllers/util"
 	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
 	"github.com/ttsubo2000/esi-terraform-worker/types"
@@ -123,15 +122,8 @@ func (r *ConfigurationReconciler) Reconcile(ctx context.Context, req Request, in
 
 	if isDeleting {
 		// terraform destroy
-		klog.InfoS("performing Configuration Destroy", "NamespacedName", req.NamespacedName, "JobName", meta.DestroyJobName)
+		klog.InfoS("Start: Terraform Destroy", "NamespacedName", req.NamespacedName, "JobName", meta.DestroyJobName)
 
-		_, err := terraform.GetTerraformStatus(ctx, meta.Namespace, meta.DestroyJobName, terraformContainerName, terraformInitContainerName)
-		if err != nil {
-			klog.ErrorS(err, "Terraform destroy failed")
-			if updateErr := meta.updateDestroyStatus(ctx, r.Client, types.ConfigurationDestroyFailed, err.Error()); updateErr != nil {
-				return Result{}, updateErr
-			}
-		}
 		if err := r.terraformDestroy(ctx, req.NamespacedName, configuration, meta); err != nil {
 			if err.Error() == types.MessageDestroyJobNotCompleted {
 				return Result{RequeueAfter: 3 * time.Second}, nil
@@ -148,25 +140,21 @@ func (r *ConfigurationReconciler) Reconcile(ctx context.Context, req Request, in
 				return Result{RequeueAfter: 3 * time.Second}, errors.Wrap(err, "failed to remove finalizer")
 			}
 		}
+
+		klog.InfoS("Success: Terraform Destroy", "NamespacedName", req.NamespacedName, "JobName", meta.DestroyJobName)
 		return Result{}, nil
 	}
 
 	// Terraform apply (create or update)
-	klog.InfoS("performing Terraform Apply (cloud resource create/update)", "Namespace", Namespace, "Name", Name)
+	klog.InfoS("Start: Terraform Apply (cloud resource create/update)", "Namespace", Namespace, "Name", Name)
 	if err := r.terraformApply(ctx, Namespace, configuration, meta); err != nil {
 		if err.Error() == types.MessageApplyJobNotCompleted {
 			return Result{RequeueAfter: 3 * time.Second}, nil
 		}
 		return Result{RequeueAfter: 3 * time.Second}, errors.Wrap(err, "failed to create/update cloud resource")
 	}
-	state, err := terraform.GetTerraformStatus(ctx, meta.Namespace, meta.ApplyJobName, terraformContainerName, terraformInitContainerName)
-	if err != nil {
-		klog.ErrorS(err, "Terraform apply failed")
-		if updateErr := meta.updateApplyStatus(ctx, r.Client, state, err.Error()); updateErr != nil {
-			return Result{}, updateErr
-		}
-	}
 
+	klog.InfoS("Success: Terraform Apply (cloud resource create/update)", "Namespace", Namespace, "Name", Name)
 	return Result{}, nil
 }
 
@@ -571,7 +559,6 @@ func (meta *TFConfigurationMeta) assembleAndTriggerJob(ctx context.Context, Clie
 	for k, v := range gotCM.Data {
 		filename := k
 		content := v
-		klog.Infof("### TF configuration: [%s]=[%v]\n", filename, content)
 		f, _ := os.Create(filename)
 		f.Write([]byte(content))
 		f.Close()
@@ -797,8 +784,6 @@ func (meta *TFConfigurationMeta) prepareTFVariables(configuration *types.Configu
 	}
 	meta.Envs = envs
 	meta.VariableSecretData = data
-	klog.Infof("### meta.VariableSecretData=[%#v]\n", data)
-
 	return nil
 }
 
