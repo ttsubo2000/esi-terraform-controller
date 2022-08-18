@@ -122,10 +122,8 @@ func main() {
 	}()
 
 	mgr := manager.NewManager()
-	mgr.Add(controllers.NewController("secret", &controllers.SecretReconciler{Client: clientState}, &types.Secret{}, clientState))
 	mgr.Add(controllers.NewController("provider", &controllers.ProviderReconciler{Client: clientState}, &types.Provider{}, clientState))
 	mgr.Add(controllers.NewController("configuration", &controllers.ConfigurationReconciler{Client: clientState}, &types.Configuration{}, clientState))
-	mgr.Add(controllers.NewController("job", &controllers.JobReconciler{Client: clientState}, &types.Job{}, clientState))
 	if err := mgr.Start(manager.SetupSignalHandler()); err != nil {
 		klog.Error(err, "problem controller")
 		os.Exit(1)

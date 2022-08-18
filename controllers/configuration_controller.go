@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -17,6 +15,10 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/hashicorp/go-version"
+	"github.com/hashicorp/hc-install/product"
+	"github.com/hashicorp/hc-install/releases"
+	"github.com/hashicorp/terraform-exec/tfexec"
 	crossplane "github.com/oam-dev/terraform-controller/api/types/crossplane-runtime"
 	"github.com/pkg/errors"
 	"github.com/ttsubo/client-go/tools/cache"
@@ -109,17 +111,6 @@ func (r *ConfigurationReconciler) Reconcile(ctx context.Context, req Request, in
 		return Result{}, err
 	}
 
-	var tfExecutionJob = &types.Job{}
-	key := "Job" + "/" + meta.Namespace + "/" + meta.ApplyJobName
-	obj, _, err = r.Client.GetByKey(key)
-	if err == nil {
-		tfExecutionJob = obj.(*types.Job)
-		if !meta.EnvChanged && tfExecutionJob.Status.Succeeded == int32(1) {
-			if err := meta.updateApplyStatus(ctx, r.Client, types.Available, types.MessageCloudResourceDeployed); err != nil {
-				return Result{}, err
-			}
-		}
-	}
 	var Namespace, Name string
 	NamespacedName := strings.Split(req.NamespacedName, "/")
 	if len(NamespacedName) != 2 {
@@ -266,52 +257,16 @@ func (r *ConfigurationReconciler) terraformApply(ctx context.Context, namespace 
 	klog.InfoS("terraform apply job", "Namespace", namespace, "Name", meta.ApplyJobName)
 
 	var (
-		Client         = r.Client
-		tfExecutionJob types.Job
+		Client = r.Client
 	)
 
-	key := "Job" + "/" + namespace + "/" + meta.ApplyJobName
-	obj, _, err := Client.GetByKey(key)
-	if err != nil {
-		return meta.assembleAndTriggerJob(ctx, Client, TerraformApply)
-	}
-	tfExecutionJob = obj.(types.Job)
-
-	if err := meta.updateTerraformJobIfNeeded(ctx, Client, tfExecutionJob); err != nil {
-		klog.ErrorS(err, types.ErrUpdateTerraformApplyJob, "Name", meta.ApplyJobName)
-		return errors.Wrap(err, types.ErrUpdateTerraformApplyJob)
-	}
-
-	if !meta.EnvChanged && tfExecutionJob.Status.Succeeded == int32(1) {
-		if err := meta.updateApplyStatus(ctx, Client, types.Available, types.MessageCloudResourceDeployed); err != nil {
-			return err
-		}
-	} else {
-		// start provisioning and check the status of the provision
-		// If the state is types.InvalidRegion, no need to continue checking
-		if configuration.Status.Apply.State != types.ConfigurationProvisioningAndChecking &&
-			configuration.Status.Apply.State != types.InvalidRegion {
-			if err := meta.updateApplyStatus(ctx, r.Client, types.ConfigurationProvisioningAndChecking, types.MessageCloudResourceProvisioningAndChecking); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return meta.assembleAndTriggerJob(ctx, Client, TerraformApply)
 }
 
 func (r *ConfigurationReconciler) terraformDestroy(ctx context.Context, NamespacedName string, configuration *types.Configuration, meta *TFConfigurationMeta) error {
 	var (
-		destroyJob types.Job
-		Client     = r.Client
-		namespace  string
+		Client = r.Client
 	)
-
-	namespacedName := strings.Split(NamespacedName, "/")
-	if len(namespacedName) != 2 {
-		namespace = ""
-	} else {
-		namespace = namespacedName[0]
-	}
 
 	deletable, err := tfcfg.IsDeletable(ctx, Client, configuration)
 	if err != nil {
@@ -332,7 +287,7 @@ func (r *ConfigurationReconciler) terraformDestroy(ctx context.Context, Namespac
 				}
 			}
 		}
-		if err := meta.updateTerraformJobIfNeeded(ctx, Client, destroyJob); err != nil {
+		if err := meta.updateTerraformJobIfNeeded(ctx, Client); err != nil {
 			klog.ErrorS(err, types.ErrUpdateTerraformApplyJob, "Name", meta.ApplyJobName)
 			return errors.Wrap(err, types.ErrUpdateTerraformApplyJob)
 		}
@@ -343,13 +298,7 @@ func (r *ConfigurationReconciler) terraformDestroy(ctx context.Context, Namespac
 		return err
 	}
 
-	// When the deletion Job process succeeded, clean up work is starting.
-	keyDestroyJob := "Job" + "/" + meta.Namespace + "/" + meta.DestroyJobName
-	_, _, err = Client.GetByKey(keyDestroyJob)
-	if err != nil {
-		return err
-	}
-	if destroyJob.Status.Succeeded == int32(1) || deleteConfigurationDirectly {
+	if deleteConfigurationDirectly {
 		// 1. delete Terraform input Configuration ConfigMap
 		if err := meta.deleteConfigMap(ctx, Client); err != nil {
 			return err
@@ -364,33 +313,11 @@ func (r *ConfigurationReconciler) terraformDestroy(ctx context.Context, Namespac
 			}
 		}
 
-		// 3. delete apply job
-		var applyJob types.Job
-		keyApplyJob := "Job" + "/" + namespace + "/" + meta.ApplyJobName
-		obj, _, err := Client.GetByKey(keyApplyJob)
-		if err == nil {
-			applyJob = obj.(types.Job)
-			if err := Client.Delete(&applyJob); err != nil {
-				return err
-			}
-		}
-
-		// 4. delete destroy job
-		var j types.Job
-		keyDestroyJob = "Job" + "/" + namespace + "/" + meta.ApplyJobName
-		obj, _, err = Client.GetByKey(keyDestroyJob)
-		if err == nil {
-			j = obj.(types.Job)
-			if err := Client.Delete(&j); err != nil {
-				return err
-			}
-		}
-
-		// 5. delete secret which stores variables
+		// 3. delete secret which stores variables
 		klog.InfoS("Deleting the secret which stores variables", "Name", meta.VariableSecretName)
 		var variableSecret types.Secret
 		keyVariableSecret := "Secret" + "/" + meta.Namespace + "/" + meta.VariableSecretName
-		obj, _, err = Client.GetByKey(keyVariableSecret)
+		obj, _, err := Client.GetByKey(keyVariableSecret)
 		if err == nil {
 			variableSecret = obj.(types.Secret)
 			if err := Client.Delete(&variableSecret); err != nil {
@@ -398,7 +325,7 @@ func (r *ConfigurationReconciler) terraformDestroy(ctx context.Context, Namespac
 			}
 		}
 
-		// 6. delete Kubernetes backend secret
+		// 4. delete Kubernetes backend secret
 		klog.InfoS("Deleting the secret which stores Kubernetes backend", "Name", meta.BackendSecretName)
 		var kubernetesBackendSecret types.Secret
 		keyKubernetesBackendSecret := "Secret" + "/" + meta.TerraformBackendNamespace + "/" + meta.BackendSecretName
@@ -627,31 +554,66 @@ func (meta *TFConfigurationMeta) updateDestroyStatus(ctx context.Context, Client
 }
 
 func (meta *TFConfigurationMeta) assembleAndTriggerJob(ctx context.Context, Client cacheObj.Store, executionType TerraformExecutionType) error {
-	// apply rbac
-	if err := createTerraformExecutorServiceAccount(ctx, Client, meta.Namespace, ServiceAccountName); err != nil {
-		return err
+
+	key := "ConfigMap/default/tf-Configuration"
+	obj, exists, err := Client.GetByKey(key)
+	if err != nil || !exists {
+		return errors.Wrap(err, "failed to fetch TF configuration ConfigMap")
 	}
-	if err := createTerraformExecutorClusterRoleBinding(ctx, Client, meta.Namespace, fmt.Sprintf("%s-%s", meta.Namespace, ClusterRoleName), ServiceAccountName); err != nil {
-		return err
+	gotCM := obj.(*types.ConfigMap)
+	for k, v := range gotCM.Data {
+		filename := k
+		content := v
+		klog.Infof("### TF configuration: [%s]=[%v]\n", filename, content)
+		f, _ := os.Create(filename)
+		f.Write([]byte(content))
+		f.Close()
+		err := os.Rename(filename, fmt.Sprintf("work/%s", filename))
+		if err != nil {
+			klog.Fatal(err)
+		}
 	}
 
-	job := meta.assembleTerraformJob(executionType)
-	return Client.Add(job)
+	installer := &releases.ExactVersion{
+		Product:    product.Terraform,
+		Version:    version.Must(version.NewVersion("1.2.6")),
+		InstallDir: "/tmp",
+	}
+
+	execPath, err := installer.Install(ctx)
+	if err != nil {
+		klog.Errorf("error installing Terraform: %s", err)
+	}
+
+	workingDir := "./work"
+	tf, err := tfexec.NewTerraform(workingDir, execPath)
+	if err != nil {
+		klog.Errorf("error running NewTerraform: %s", err)
+	}
+
+	err = tf.Init(ctx, tfexec.Upgrade(true))
+	if err != nil {
+		klog.Errorf("error running Init: %s", err)
+	}
+
+	if executionType == "apply" {
+		err = tf.Apply(ctx)
+		if err != nil {
+			return err
+		}
+	} else if executionType == "destroy" {
+		err = tf.Destroy(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // updateTerraformJob will set deletion finalizer to the Terraform job if its envs are changed, which will result in
 // deleting the job. Finally, a new Terraform job will be generated
-func (meta *TFConfigurationMeta) updateTerraformJobIfNeeded(ctx context.Context, Client cacheObj.Store, job types.Job) error {
-	// if either one changes, delete the job
+func (meta *TFConfigurationMeta) updateTerraformJobIfNeeded(ctx context.Context, Client cacheObj.Store) error {
 	if meta.EnvChanged || meta.ConfigurationChanged {
-		klog.InfoS("about to delete job", "Name", job.Name, "Namespace", job.Namespace)
-		keyJob := "Job" + "/" + job.Namespace + "/" + job.Name
-		_, _, err := Client.GetByKey(keyJob)
-		if err == nil {
-			if deleteErr := Client.Delete(&job); deleteErr != nil {
-				return deleteErr
-			}
-		}
 		var s v1.Secret
 		keySecret := "Secret" + "/" + meta.Namespace + "/" + meta.VariableSecretName
 		obj, _, err := Client.GetByKey(keySecret)
@@ -663,186 +625,6 @@ func (meta *TFConfigurationMeta) updateTerraformJobIfNeeded(ctx context.Context,
 		}
 	}
 	return nil
-}
-
-func (meta *TFConfigurationMeta) assembleTerraformJob(executionType TerraformExecutionType) *types.Job {
-	var (
-		initContainer           v1.Container
-		tfPreApplyInitContainer v1.Container
-		initContainers          []v1.Container
-		parallelism             int32 = 1
-		completions             int32 = 1
-		backoffLimit            int32 = math.MaxInt32
-	)
-
-	executorVolumes := meta.assembleExecutorVolumes()
-	initContainerVolumeMounts := []v1.VolumeMount{
-		{
-			Name:      meta.Name,
-			MountPath: WorkingVolumeMountPath,
-		},
-		{
-			Name:      InputTFConfigurationVolumeName,
-			MountPath: InputTFConfigurationVolumeMountPath,
-		},
-		{
-			Name:      BackendVolumeName,
-			MountPath: BackendVolumeMountPath,
-		},
-	}
-
-	// prepare local Terraform .tf files
-	initContainer = v1.Container{
-		Name:            "prepare-input-terraform-configurations",
-		Image:           meta.BusyboxImage,
-		ImagePullPolicy: v1.PullIfNotPresent,
-		Command: []string{
-			"sh",
-			"-c",
-			fmt.Sprintf("cp %s/* %s", InputTFConfigurationVolumeMountPath, WorkingVolumeMountPath),
-		},
-		VolumeMounts: initContainerVolumeMounts,
-	}
-
-	initContainers = append(initContainers, initContainer)
-
-	hclPath := filepath.Join(BackendVolumeMountPath, meta.RemoteGitPath)
-
-	if meta.RemoteGit != "" {
-		initContainers = append(initContainers,
-			v1.Container{
-				Name:            "git-configuration",
-				Image:           meta.GitImage,
-				ImagePullPolicy: v1.PullIfNotPresent,
-				Command: []string{
-					"sh",
-					"-c",
-					fmt.Sprintf("git clone %s %s && cp -r %s/* %s", meta.RemoteGit, BackendVolumeMountPath,
-						hclPath, WorkingVolumeMountPath),
-				},
-				VolumeMounts: initContainerVolumeMounts,
-			})
-	}
-
-	// run `terraform init`
-	tfPreApplyInitContainer = v1.Container{
-		Name:            terraformInitContainerName,
-		Image:           meta.TerraformImage,
-		ImagePullPolicy: v1.PullIfNotPresent,
-		Command: []string{
-			"sh",
-			"-c",
-			"terraform init",
-		},
-		VolumeMounts: initContainerVolumeMounts,
-	}
-	initContainers = append(initContainers, tfPreApplyInitContainer)
-
-	container := v1.Container{
-		Name:            terraformContainerName,
-		Image:           meta.TerraformImage,
-		ImagePullPolicy: v1.PullIfNotPresent,
-		Command: []string{
-			"bash",
-			"-c",
-			fmt.Sprintf("terraform %s -lock=false -auto-approve", executionType),
-		},
-		VolumeMounts: []v1.VolumeMount{
-			{
-				Name:      meta.Name,
-				MountPath: WorkingVolumeMountPath,
-			},
-			{
-				Name:      InputTFConfigurationVolumeName,
-				MountPath: InputTFConfigurationVolumeMountPath,
-			},
-		},
-		Env: meta.Envs,
-	}
-
-	if meta.ResourcesLimitsCPU != "" || meta.ResourcesLimitsMemory != "" ||
-		meta.ResourcesRequestsCPU != "" || meta.ResourcesRequestsMemory != "" {
-		resourceRequirements := v1.ResourceRequirements{}
-		if meta.ResourcesLimitsCPU != "" || meta.ResourcesLimitsMemory != "" {
-			resourceRequirements.Limits = v1.ResourceList(map[v1.ResourceName]resource.Quantity{})
-			if meta.ResourcesLimitsCPU != "" {
-				resourceRequirements.Limits["cpu"] = meta.ResourcesLimitsCPUQuantity
-			}
-			if meta.ResourcesLimitsMemory != "" {
-				resourceRequirements.Limits["memory"] = meta.ResourcesLimitsMemoryQuantity
-			}
-		}
-		if meta.ResourcesRequestsCPU != "" || meta.ResourcesLimitsMemory != "" {
-			resourceRequirements.Requests = v1.ResourceList(map[v1.ResourceName]resource.Quantity{})
-			if meta.ResourcesRequestsCPU != "" {
-				resourceRequirements.Requests["cpu"] = meta.ResourcesRequestsCPUQuantity
-			}
-			if meta.ResourcesRequestsMemory != "" {
-				resourceRequirements.Requests["memory"] = meta.ResourcesRequestsMemoryQuantity
-			}
-		}
-		container.Resources = resourceRequirements
-	}
-
-	return &types.Job{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Job",
-			APIVersion: "batch/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      meta.Name + "-" + string(executionType),
-			Namespace: meta.Namespace,
-		},
-		Spec: types.JobSpec{
-			Parallelism:  &parallelism,
-			Completions:  &completions,
-			BackoffLimit: &backoffLimit,
-			Template: v1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						// This annotation will prevent istio-proxy sidecar injection in the pods
-						// as having the sidecar would have kept the Job in `Running` state and would
-						// not transition to `Completed`
-						"sidecar.istio.io/inject": "false",
-					},
-				},
-				Spec: v1.PodSpec{
-					// InitContainer will copy Terraform configuration files to working directory and create Terraform
-					// state file directory in advance
-					InitContainers: initContainers,
-					// Container terraform-executor will first copy predefined terraform.d to working directory, and
-					// then run terraform init/apply.
-					Containers:         []v1.Container{container},
-					ServiceAccountName: ServiceAccountName,
-					Volumes:            executorVolumes,
-					RestartPolicy:      v1.RestartPolicyOnFailure,
-				},
-			},
-		},
-	}
-}
-
-func (meta *TFConfigurationMeta) assembleExecutorVolumes() []v1.Volume {
-	workingVolume := v1.Volume{Name: meta.Name}
-	workingVolume.EmptyDir = &v1.EmptyDirVolumeSource{}
-	inputTFConfigurationVolume := meta.createConfigurationVolume()
-	tfBackendVolume := meta.createTFBackendVolume()
-	return []v1.Volume{workingVolume, inputTFConfigurationVolume, tfBackendVolume}
-}
-
-func (meta *TFConfigurationMeta) createConfigurationVolume() v1.Volume {
-	inputCMVolumeSource := v1.ConfigMapVolumeSource{}
-	inputCMVolumeSource.Name = meta.ConfigurationCMName
-	inputTFConfigurationVolume := v1.Volume{Name: InputTFConfigurationVolumeName}
-	inputTFConfigurationVolume.ConfigMap = &inputCMVolumeSource
-	return inputTFConfigurationVolume
-
-}
-
-func (meta *TFConfigurationMeta) createTFBackendVolume() v1.Volume {
-	gitVolume := v1.Volume{Name: BackendVolumeName}
-	gitVolume.EmptyDir = &v1.EmptyDirVolumeSource{}
-	return gitVolume
 }
 
 // TfStateProperty is the tf state property for an output

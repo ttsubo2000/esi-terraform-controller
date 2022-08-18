@@ -81,8 +81,6 @@ type Cache struct {
 	// setup informer
 	InformerConfig   cache.Controller
 	InformerProvider cache.Controller
-	InformerSecret   cache.Controller
-	InformerJob      cache.Controller
 }
 
 //var _ Store = &cache{}
@@ -99,15 +97,11 @@ func (c *Cache) Add(obj interface{}) error {
 	case *types.Provider:
 		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Provider))
 		c.InformerProvider.InjectWorkerQueue(obj)
-	case *types.Secret:
-		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Secret))
-		c.InformerSecret.InjectWorkerQueue(obj)
 	case *types.Configuration:
 		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Configuration))
 		c.InformerConfig.InjectWorkerQueue(obj)
-	case *types.Job:
-		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Job))
-		c.InformerJob.InjectWorkerQueue(obj)
+	case *types.Secret:
+		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Secret))
 	case *types.ConfigMap:
 		klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.ConfigMap))
 	case *rbacv1.ClusterRole:
@@ -170,14 +164,10 @@ func (c *Cache) GetByKey(key string) (item interface{}, exists bool, err error) 
 // Add Informer
 func (c *Cache) AddInformer(obj runtime.Object, informer cache.Controller) {
 	switch obj.(type) {
-	case *types.Secret:
-		c.InformerSecret = informer
 	case *types.Provider:
 		c.InformerProvider = informer
 	case *types.Configuration:
 		c.InformerConfig = informer
-	case *types.Job:
-		c.InformerJob = informer
 	}
 }
 
