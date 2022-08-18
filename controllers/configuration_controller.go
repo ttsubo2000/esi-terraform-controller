@@ -254,11 +254,18 @@ func initTFConfigurationMeta(req Request, configuration *types.Configuration) *T
 }
 
 func (r *ConfigurationReconciler) terraformApply(ctx context.Context, namespace string, configuration *types.Configuration, meta *TFConfigurationMeta) error {
+	var Client = r.Client
 	klog.InfoS("terraform apply job", "Namespace", namespace, "Name", meta.ApplyJobName)
 
-	var (
-		Client = r.Client
-	)
+	for k, v := range meta.VariableSecretData {
+		if v != "" {
+			klog.Infof("Set environment [key: \"%s\", value: \"%s\"]\n", k, v)
+			os.Setenv(k, v)
+			if err := os.Setenv(k, v); err != nil {
+				klog.Fatalf("Cannot set environment variable: %v", err)
+			}
+		}
+	}
 
 	return meta.assembleAndTriggerJob(ctx, Client, TerraformApply)
 }
