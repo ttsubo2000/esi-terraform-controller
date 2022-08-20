@@ -574,9 +574,12 @@ func (meta *TFConfigurationMeta) assembleAndTriggerJob(ctx context.Context, Clie
 		InstallDir: "/tmp",
 	}
 
-	execPath, err := installer.Install(ctx)
-	if err != nil {
-		klog.Errorf("error installing Terraform: %s", err)
+	execPath := "/tmp/terraform"
+	if _, err := os.Stat(execPath); err != nil {
+		_, err := installer.Install(ctx)
+		if err != nil {
+			klog.Errorf("error installing Terraform: %s", err)
+		}
 	}
 
 	workingDir := "./work"

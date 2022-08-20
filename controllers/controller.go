@@ -127,7 +127,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) reconcileHandler(ctx context.Context, obj interface{}) {
-	key, ok := obj.(string)
+	req, ok := obj.(Request)
 	if !ok {
 		// As the item in the workqueue is actually invalid, we call
 		// Forget here else we'd go into a loop of attempting to
@@ -136,7 +136,6 @@ func (c *Controller) reconcileHandler(ctx context.Context, obj interface{}) {
 		// Return true, don't take a break
 		return
 	}
-	req := Request{NamespacedName: key}
 	result, err := c.Do.Reconcile(ctx, req, c.indexer)
 
 	switch {
@@ -165,19 +164,22 @@ func NewController(name string, r Reconciler, objType runtime.Object, clientStat
 		AddFunc: func(obj interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(obj)
 			if err == nil {
-				queue.Add(key)
+				req := Request{NamespacedName: key}
+				queue.Add(req)
 			}
 		},
 		UpdateFunc: func(old interface{}, new interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(new)
 			if err == nil {
-				queue.Add(key)
+				req := Request{NamespacedName: key}
+				queue.Add(req)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 			if err == nil {
-				queue.Add(key)
+				req := Request{NamespacedName: key}
+				queue.Add(req)
 			}
 		},
 	}, cache.Indexers{})
