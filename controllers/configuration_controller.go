@@ -180,10 +180,7 @@ type TFConfigurationMeta struct {
 	Credentials           map[string]string
 
 	// TerraformImage is the Terraform image which can run `terraform init/plan/apply`
-	TerraformImage            string
 	TerraformBackendNamespace string
-	BusyboxImage              string
-	GitImage                  string
 
 	// Resources series Variables are for Setting Compute Resources required by this container
 	ResourcesLimitsCPU              string
@@ -384,23 +381,9 @@ func (r *ConfigurationReconciler) preCheckResourcesSetting(meta *TFConfiguration
 func (r *ConfigurationReconciler) preCheck(ctx context.Context, configuration *types.Configuration, meta *TFConfigurationMeta) error {
 	var storeClient = r.Client
 
-	meta.TerraformImage = os.Getenv("TERRAFORM_IMAGE")
-	if meta.TerraformImage == "" {
-		meta.TerraformImage = "oamdev/docker-terraform:1.1.2"
-	}
-
 	meta.TerraformBackendNamespace = os.Getenv("TERRAFORM_BACKEND_NAMESPACE")
 	if meta.TerraformBackendNamespace == "" {
 		meta.TerraformBackendNamespace = "vela-system"
-	}
-
-	meta.BusyboxImage = os.Getenv("BUSYBOX_IMAGE")
-	if meta.BusyboxImage == "" {
-		meta.BusyboxImage = "busybox:latest"
-	}
-	meta.GitImage = os.Getenv("GIT_IMAGE")
-	if meta.GitImage == "" {
-		meta.GitImage = "alpine/git:latest"
 	}
 
 	if err := r.preCheckResourcesSetting(meta); err != nil {
@@ -466,8 +449,8 @@ func (r *ConfigurationReconciler) preCheck(ctx context.Context, configuration *t
 		return err
 	}
 
-	var variableInSecret types.Secret
-	key := "Sercet" + "/" + meta.Namespace + "/" + meta.VariableSecretName
+	var variableInSecret *types.Secret
+	key := "Secret" + "/" + meta.Namespace + "/" + meta.VariableSecretName
 	obj, exist, err := storeClient.GetByKey(key)
 	switch {
 	case !exist:
@@ -484,7 +467,7 @@ func (r *ConfigurationReconciler) preCheck(ctx context.Context, configuration *t
 			return err
 		}
 	case err == nil:
-		variableInSecret = obj.(types.Secret)
+		variableInSecret = obj.(*types.Secret)
 		for k, v := range meta.VariableSecretData {
 			if val, ok := variableInSecret.Data[k]; !ok || !strings.EqualFold(v, val) {
 				meta.EnvChanged = true
