@@ -1,0 +1,12 @@
+kind: Provider
+metadata:
+  name: hashicups
+  namespace: default
+spec:
+  provider: hashicups
+  credentials:
+    source: Secret
+    secretRef:
+      name: hashicups-account-creds
+      namespace: hashicups
+      key: credentials

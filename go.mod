@@ -18,6 +18,7 @@ require (
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.2
+	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-version v1.6.0
 	github.com/hashicorp/hc-install v0.4.0
 	github.com/hashicorp/terraform-exec v0.17.2
