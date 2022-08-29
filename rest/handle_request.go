@@ -20,12 +20,19 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 func HandleRequests(clientState cacheObj.Store) {
 	myRouter := mux.NewRouter().StrictSlash(true)
 	myRouter.HandleFunc("/", homePage)
-	myRouter.HandleFunc("/secrets", returnAllSecrets)
-	myRouter.HandleFunc("/secret/{name}", returnSingleSecret)
+	myRouter.HandleFunc("/secrets", func(w http.ResponseWriter, r *http.Request) {
+		returnAllSecrets(w, r, clientState)
+	}).Methods("GET")
+	myRouter.HandleFunc("/secret/{namespace}/{name}", func(w http.ResponseWriter, r *http.Request) {
+		returnSingleSecret(w, r, clientState)
+	}).Methods("GET")
 	myRouter.HandleFunc("/secret", func(w http.ResponseWriter, r *http.Request) {
 		createNewSecret(w, r, clientState)
 	}).Methods("POST")
-	myRouter.HandleFunc("/secret/{name}", func(w http.ResponseWriter, r *http.Request) {
+	myRouter.HandleFunc("/secret/{namespace}/{name}", func(w http.ResponseWriter, r *http.Request) {
+		updateSecret(w, r, clientState)
+	}).Methods("PUT")
+	myRouter.HandleFunc("/secret/{namespace}/{name}", func(w http.ResponseWriter, r *http.Request) {
 		deleteSecret(w, r, clientState)
 	}).Methods("DELETE")
 
