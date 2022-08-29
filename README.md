@@ -105,7 +105,7 @@ You can confirm content of configuration as following
 
     kind: Configuration
     metadata:
-      name: Configuration
+      name: sample-configuration
       namespace: default
     spec:
       hcl: |-
@@ -138,7 +138,7 @@ After converting yaml file to json format, you need to handle for creating new c
     {
       "kind": "Configuration",
       "metadata": {
-        "name": "Configuration",
+        "name": "sample-configuration",
         "namespace": "default",
         "creationTimestamp": null
       },

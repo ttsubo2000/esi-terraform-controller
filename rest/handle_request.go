@@ -5,11 +5,8 @@ import (
 
 	"github.com/gorilla/mux"
 	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
-	"github.com/ttsubo2000/esi-terraform-worker/types"
 	"k8s.io/klog/v2"
 )
-
-var Configurations []types.Configuration
 
 func homePage(w http.ResponseWriter, r *http.Request) {
 	klog.Info(w, "Welcome to the HomePage!")
@@ -20,6 +17,7 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 func HandleRequests(clientState cacheObj.Store) {
 	myRouter := mux.NewRouter().StrictSlash(true)
 	myRouter.HandleFunc("/", homePage)
+
 	myRouter.HandleFunc("/secrets", func(w http.ResponseWriter, r *http.Request) {
 		returnAllSecrets(w, r, clientState)
 	}).Methods("GET")
@@ -52,13 +50,21 @@ func HandleRequests(clientState cacheObj.Store) {
 		deleteProvider(w, r, clientState)
 	}).Methods("DELETE")
 
-	myRouter.HandleFunc("/configurations", returnAllConfigurations)
-	myRouter.HandleFunc("/configuration/{name}", returnSingleConfiguration)
+	myRouter.HandleFunc("/configurations", func(w http.ResponseWriter, r *http.Request) {
+		returnAllConfigurations(w, r, clientState)
+	}).Methods("GET")
+	myRouter.HandleFunc("/configuration/{namespace}/{name}", func(w http.ResponseWriter, r *http.Request) {
+		returnSingleConfiguration(w, r, clientState)
+	}).Methods("GET")
 	myRouter.HandleFunc("/configuration", func(w http.ResponseWriter, r *http.Request) {
 		createNewConfiguration(w, r, clientState)
 	}).Methods("POST")
-	myRouter.HandleFunc("/configuration/{name}", func(w http.ResponseWriter, r *http.Request) {
+	myRouter.HandleFunc("/configuration/{namespace}/{name}", func(w http.ResponseWriter, r *http.Request) {
+		updateConfiguration(w, r, clientState)
+	}).Methods("PUT")
+	myRouter.HandleFunc("/configuration/{namespace}/{name}", func(w http.ResponseWriter, r *http.Request) {
 		deleteConfiguration(w, r, clientState)
 	}).Methods("DELETE")
+
 	klog.Fatal(http.ListenAndServe(":10000", myRouter))
 }

@@ -1,6 +1,6 @@
 kind: Configuration
 metadata:
-  name: Configuration
+  name: sample-configuration
   namespace: default
 spec:
   hcl: |-
