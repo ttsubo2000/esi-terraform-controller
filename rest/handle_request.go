@@ -36,12 +36,19 @@ func HandleRequests(clientState cacheObj.Store) {
 		deleteSecret(w, r, clientState)
 	}).Methods("DELETE")
 
-	myRouter.HandleFunc("/providers", returnAllProviders)
-	myRouter.HandleFunc("/provider/{name}", returnSingleProvider)
+	myRouter.HandleFunc("/providers", func(w http.ResponseWriter, r *http.Request) {
+		returnAllProviders(w, r, clientState)
+	}).Methods("GET")
+	myRouter.HandleFunc("/provider/{namespace}/{name}", func(w http.ResponseWriter, r *http.Request) {
+		returnSingleProvider(w, r, clientState)
+	}).Methods("GET")
 	myRouter.HandleFunc("/provider", func(w http.ResponseWriter, r *http.Request) {
 		createNewProvider(w, r, clientState)
 	}).Methods("POST")
-	myRouter.HandleFunc("/provider/{name}", func(w http.ResponseWriter, r *http.Request) {
+	myRouter.HandleFunc("/provider/{namespace}/{name}", func(w http.ResponseWriter, r *http.Request) {
+		updateProvider(w, r, clientState)
+	}).Methods("PUT")
+	myRouter.HandleFunc("/provider/{namespace}/{name}", func(w http.ResponseWriter, r *http.Request) {
 		deleteProvider(w, r, clientState)
 	}).Methods("DELETE")
 
