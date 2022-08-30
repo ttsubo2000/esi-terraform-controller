@@ -6,12 +6,23 @@ This page help you confirming of how esi-terraform-worker using terraform-provid
 
 The following tools are required to run this tutorial:
 
-- [yq (lightweight and portable command-line YAML, JSON and XML processor)](https://github.com/mikefarah/yq)
-- [terraform-provider-hashicups](https://github.com/hashicorp/terraform-provider-hashicups)
+- [yq (Lightweight and portable command-line YAML, JSON and XML processor)](https://github.com/mikefarah/yq)
+- Needs to install HashiCups provider as [terraform-provider-hashicups](https://github.com/hashicorp/terraform-provider-hashicups)
 
-## How to Run
+## How to confirm tutorial of terraform-provider-hashicups
 
-Starting esi-terraform-worker as following
+### (1) Preparing for the tutorial environment as [Perform CRUD Operations with Providers](https://learn.hashicorp.com/tutorials/terraform/provider-use?in=terraform/providers)
+
+Initialize HashiCups locally
+
+    cd examples/hashicups/docker-compose  
+    docker-compose up
+
+Create new HashiCups user
+
+    curl -X POST localhost:19090/signup -d '{"username":"education", "password":"test123"}'
+
+### (2) Starting esi-terraform-worker as following
 
     $ go run main.go
 
@@ -22,7 +33,7 @@ Starting esi-terraform-worker as following
     I0826 17:17:07.662614   80521 store.go:98] Update key:[Provider/default/hashicups], obj:[&{{Provider } {hashicups  default    0 0001-01-01 00:00:00 +0000 UTC <nil> <nil> map[] map[] [] []  []} {hashicups  {Secret {{hashicups-account-creds hashicups} credentials}}} { }}]
     I0826 17:17:07.662913   80521 provider_controller.go:26] "reconciling Terraform Provider..." NamespacedName="default/hashicups"
 
-### (1) How to create secret
+### (3) Creating Secret for credential
 
 You can confirm content of secret as following
 
@@ -53,7 +64,7 @@ After converting yaml file to json format, you need to handle for creating new s
       }
     }
 
-### (2) How to create provider
+### (4) Creating Provider for terraform-provider-hashicups
 
 You can confirm content of secret as following
 
@@ -97,7 +108,7 @@ After converting yaml file to json format, you need to handle for creating new p
       "status": {}
     }
 
-### (3) How to create configuration
+### (5) Creating Configuration for applying main.tf to Teraform Core
 
 You can confirm content of configuration as following
 
@@ -153,4 +164,39 @@ After converting yaml file to json format, you need to handle for creating new c
         "apply": {},
         "destroy": {}
       }
+    }
+
+### (6) Confirming result of terraform apply
+
+Let's check if terraform worked fine
+
+    $ cd work
+    $ terraform state show hashicups_order.edu
+
+    # hashicups_order.edu:
+    resource "hashicups_order" "edu" {
+        id = "1"
+
+        items {
+            quantity = 2
+
+            coffee {
+                id     = 3
+                image  = "/nomad.png"
+                name   = "Nomadicano"
+                price  = 150
+                teaser = "Drink one today and you will want to schedule another"
+            }
+        }
+        items {
+            quantity = 2
+
+            coffee {
+                id     = 2
+                image  = "/vault.png"
+                name   = "Vaulatte"
+                price  = 200
+                teaser = "Nothing gives you a safe and secure feeling like a Vaulatte"
+            }
+        }
     }
