@@ -8,9 +8,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+const configurationFinalizer = "configuration.finalizers.terraform-controller"
 
 // Store is a generic object storage and processing interface.
 type Store interface {
@@ -126,6 +130,18 @@ func (c *Cache) Update(obj interface{}) error {
 
 // Delete removes an item from the cache.
 func (c *Cache) Delete(obj interface{}) error {
+	switch obj.(type) {
+	case *types.Configuration:
+		now := metav1.Now()
+		configuration := obj.(*types.Configuration)
+		if controllerutil.ContainsFinalizer(configuration, configurationFinalizer) {
+			klog.Info("#### Dummy deletion of Configuration for Finalizer")
+			configuration.ObjectMeta.DeletionTimestamp = &now
+			c.Update(configuration)
+			c.InformerConfig.InjectWorkerQueue(configuration)
+			return nil
+		}
+	}
 	key, err := c.keyFunc(obj)
 	if err != nil {
 		return KeyError{obj, err}
