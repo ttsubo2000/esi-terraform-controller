@@ -200,3 +200,25 @@ Let's check if terraform worked fine
             }
         }
     }
+
+### (7) Deleting Configuration for destroying to Teraform Core
+
+You need to handle for deleting configuration via DELETE method
+
+    $ curl -X DELETE http://localhost:10000/configuration/default/sample-configuration
+    $ curl -X GET http://localhost:10000/configurations
+    null
+
+### (8) Confirming result of terraform destroy
+
+Let's check if terraform worked fine
+
+    $ terraform state show hashicups_order.edu
+
+    No instance found for the given address!
+
+    This command requires that the address references one specific instance.
+    To view the available instances, use "terraform state list". Please modify 
+    the address to reference a specific instance.
+
+That's all

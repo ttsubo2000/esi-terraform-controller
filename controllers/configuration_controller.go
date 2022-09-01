@@ -140,7 +140,10 @@ func (r *ConfigurationReconciler) Reconcile(ctx context.Context, req Request, in
 				return Result{RequeueAfter: 3 * time.Second}, errors.Wrap(err, "failed to remove finalizer")
 			}
 		}
-
+		// After deleting configurationFinalizer, try to delete configuration
+		if err := r.Client.Delete(&configuration); err != nil {
+			return Result{RequeueAfter: 3 * time.Second}, errors.Wrap(err, "failed to delete configuration")
+		}
 		klog.InfoS("Success: Terraform Destroy", "NamespacedName", req.NamespacedName, "JobName", meta.DestroyJobName)
 		return Result{}, nil
 	}
@@ -212,6 +215,7 @@ func initTFConfigurationMeta(req Request, configuration *types.Configuration) *T
 		VariableSecretName:  fmt.Sprintf(TFVariableSecret, Name),
 		ApplyJobName:        Name + "-" + string(TerraformApply),
 		DestroyJobName:      Name + "-" + string(TerraformDestroy),
+		DeleteResource:      true,
 	}
 
 	// githubBlocked mark whether GitHub is blocked in the cluster
@@ -221,7 +225,6 @@ func initTFConfigurationMeta(req Request, configuration *types.Configuration) *T
 	}
 
 	meta.RemoteGit = tfcfg.ReplaceTerraformSource(configuration.Spec.Remote, githubBlockedStr)
-	meta.DeleteResource = configuration.Spec.DeleteResource
 	if configuration.Spec.Path == "" {
 		meta.RemoteGitPath = "."
 	} else {
@@ -266,6 +269,7 @@ func (r *ConfigurationReconciler) terraformDestroy(ctx context.Context, Namespac
 	}
 
 	deleteConfigurationDirectly := deletable || !meta.DeleteResource
+	var success bool
 
 	if !deleteConfigurationDirectly {
 		key := "Configuration" + "/" + meta.Namespace + "/" + meta.DestroyJobName
@@ -283,6 +287,7 @@ func (r *ConfigurationReconciler) terraformDestroy(ctx context.Context, Namespac
 			klog.ErrorS(err, types.ErrUpdateTerraformApplyJob, "Name", meta.ApplyJobName)
 			return errors.Wrap(err, types.ErrUpdateTerraformApplyJob)
 		}
+		success = true
 	}
 
 	// destroying
@@ -290,7 +295,7 @@ func (r *ConfigurationReconciler) terraformDestroy(ctx context.Context, Namespac
 		return err
 	}
 
-	if deleteConfigurationDirectly {
+	if success || deleteConfigurationDirectly {
 		// 1. delete Terraform input Configuration ConfigMap
 		if err := meta.deleteConfigMap(ctx, Client); err != nil {
 			return err
@@ -307,24 +312,24 @@ func (r *ConfigurationReconciler) terraformDestroy(ctx context.Context, Namespac
 
 		// 3. delete secret which stores variables
 		klog.InfoS("Deleting the secret which stores variables", "Name", meta.VariableSecretName)
-		var variableSecret types.Secret
+		var variableSecret *types.Secret
 		keyVariableSecret := "Secret" + "/" + meta.Namespace + "/" + meta.VariableSecretName
 		obj, _, err := Client.GetByKey(keyVariableSecret)
 		if err == nil {
-			variableSecret = obj.(types.Secret)
-			if err := Client.Delete(&variableSecret); err != nil {
+			variableSecret = obj.(*types.Secret)
+			if err := Client.Delete(variableSecret); err != nil {
 				return err
 			}
 		}
 
 		// 4. delete Kubernetes backend secret
 		klog.InfoS("Deleting the secret which stores Kubernetes backend", "Name", meta.BackendSecretName)
-		var kubernetesBackendSecret types.Secret
+		var kubernetesBackendSecret *types.Secret
 		keyKubernetesBackendSecret := "Secret" + "/" + meta.TerraformBackendNamespace + "/" + meta.BackendSecretName
 		obj, _, err = Client.GetByKey(keyKubernetesBackendSecret)
 		if err == nil {
-			kubernetesBackendSecret = obj.(types.Secret)
-			if err := Client.Delete(&kubernetesBackendSecret); err != nil {
+			kubernetesBackendSecret = obj.(*types.Secret)
+			if err := Client.Delete(kubernetesBackendSecret); err != nil {
 				return err
 			}
 		}
@@ -787,12 +792,12 @@ func getTerraformJSONVariable(tfVariables *runtime.RawExtension) (map[string]int
 }
 
 func (meta *TFConfigurationMeta) deleteConfigMap(ctx context.Context, Client cacheObj.Store) error {
-	var cm types.ConfigMap
+	var cm *types.ConfigMap
 	key := "ConfigMap" + "/" + meta.Namespace + "/" + meta.ConfigurationCMName
 	obj, _, err := Client.GetByKey(key)
 	if err == nil {
-		cm = obj.(types.ConfigMap)
-		if err := Client.Delete(&cm); err != nil {
+		cm = obj.(*types.ConfigMap)
+		if err := Client.Delete(cm); err != nil {
 			return err
 		}
 	}
