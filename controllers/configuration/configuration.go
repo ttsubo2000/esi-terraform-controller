@@ -88,7 +88,7 @@ func SetRegion(ctx context.Context, Client cacheObj.Store, namespace, name strin
 
 // Update will update the Configuration
 func Update(ctx context.Context, Client cacheObj.Store, configuration *types.Configuration) error {
-	return Client.Update(configuration)
+	return Client.Update(configuration, false)
 }
 
 // Get will get the Configuration

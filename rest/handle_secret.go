@@ -66,7 +66,7 @@ func updateSecret(w http.ResponseWriter, r *http.Request, clientState cacheObj.S
 		var secret types.Secret
 		json.Unmarshal(reqBody, &secret)
 		if name == secret.ObjectMeta.Name && namespace == secret.ObjectMeta.Namespace {
-			clientState.Update(&secret)
+			clientState.Update(&secret, false)
 			json.NewEncoder(w).Encode(secret)
 		} else {
 			w.WriteHeader(http.StatusBadRequest)

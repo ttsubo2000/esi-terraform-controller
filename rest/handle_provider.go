@@ -66,7 +66,7 @@ func updateProvider(w http.ResponseWriter, r *http.Request, clientState cacheObj
 		var provider types.Provider
 		json.Unmarshal(reqBody, &provider)
 		if name == provider.ObjectMeta.Name && namespace == provider.ObjectMeta.Namespace {
-			clientState.Update(&provider)
+			clientState.Update(&provider, true)
 			json.NewEncoder(w).Encode(provider)
 		} else {
 			w.WriteHeader(http.StatusBadRequest)

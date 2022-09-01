@@ -23,7 +23,7 @@ type Store interface {
 	Add(obj interface{}) error
 
 	// Update updates the given object in the accumulator associated with the given object's key
-	Update(obj interface{}) error
+	Update(obj interface{}, reconciliationLoop bool) error
 
 	// Delete deletes the given object from the accumulator associated with the given object's key
 	Delete(obj interface{}) error
@@ -119,12 +119,22 @@ func (c *Cache) Add(obj interface{}) error {
 }
 
 // Update sets an item in the cache to its updated state.
-func (c *Cache) Update(obj interface{}) error {
+func (c *Cache) Update(obj interface{}, reconciliationLoop bool) error {
 	key, err := c.keyFunc(obj)
 	if err != nil {
 		return KeyError{obj, err}
 	}
 	c.cacheStorage.Update(key, obj)
+	if reconciliationLoop {
+		switch obj.(type) {
+		case *types.Provider:
+			klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Provider))
+			c.InformerProvider.InjectWorkerQueue(obj)
+		case *types.Configuration:
+			klog.Infof("Update key:[%s], obj:[%v]", key, obj.(*types.Configuration))
+			c.InformerConfig.InjectWorkerQueue(obj)
+		}
+	}
 	return nil
 }
 
@@ -137,7 +147,7 @@ func (c *Cache) Delete(obj interface{}) error {
 		if controllerutil.ContainsFinalizer(configuration, configurationFinalizer) {
 			klog.Info("#### Dummy deletion of Configuration for Finalizer")
 			configuration.ObjectMeta.DeletionTimestamp = &now
-			c.Update(configuration)
+			c.Update(configuration, false)
 			c.InformerConfig.InjectWorkerQueue(configuration)
 			return nil
 		}

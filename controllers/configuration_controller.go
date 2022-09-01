@@ -99,7 +99,7 @@ func (r *ConfigurationReconciler) Reconcile(ctx context.Context, req Request, in
 	if !isDeleting {
 		if !controllerutil.ContainsFinalizer(configuration, configurationFinalizer) {
 			controllerutil.AddFinalizer(configuration, configurationFinalizer)
-			if err := r.Client.Update(configuration); err != nil {
+			if err := r.Client.Update(configuration, false); err != nil {
 				return Result{RequeueAfter: 3 * time.Second}, errors.Wrap(err, "failed to add finalizer")
 			}
 		}
@@ -136,7 +136,7 @@ func (r *ConfigurationReconciler) Reconcile(ctx context.Context, req Request, in
 		}
 		if controllerutil.ContainsFinalizer(&configuration, configurationFinalizer) {
 			controllerutil.RemoveFinalizer(&configuration, configurationFinalizer)
-			if err := r.Client.Update(&configuration); err != nil {
+			if err := r.Client.Update(&configuration, false); err != nil {
 				return Result{RequeueAfter: 3 * time.Second}, errors.Wrap(err, "failed to remove finalizer")
 			}
 		}
@@ -518,7 +518,7 @@ func (meta *TFConfigurationMeta) updateApplyStatus(ctx context.Context, Client c
 			configuration.Status.Apply.Outputs = outputs
 		}
 	}
-	return Client.Update(configuration)
+	return Client.Update(configuration, false)
 }
 
 func (meta *TFConfigurationMeta) updateDestroyStatus(ctx context.Context, Client cacheObj.Store, state types.ConfigurationState, message string) error {
@@ -531,7 +531,7 @@ func (meta *TFConfigurationMeta) updateDestroyStatus(ctx context.Context, Client
 			State:   state,
 			Message: message,
 		}
-		return Client.Update(configuration)
+		return Client.Update(configuration, false)
 	}
 	return nil
 }
@@ -725,7 +725,7 @@ func (meta *TFConfigurationMeta) getTFOutputs(ctx context.Context, Client cacheO
 			return nil, errors.New(errMsg)
 		}
 		gotSecret.Data = data
-		if err := Client.Update(gotSecret); err != nil {
+		if err := Client.Update(gotSecret, false); err != nil {
 			return nil, err
 		}
 	}
@@ -841,7 +841,7 @@ func (meta *TFConfigurationMeta) createOrUpdateConfigMap(ctx context.Context, Cl
 	gotCM = obj.(*types.ConfigMap)
 	if !reflect.DeepEqual(gotCM.Data, data) {
 		gotCM.Data = data
-		return errors.Wrap(Client.Update(gotCM), "failed to update TF configuration ConfigMap")
+		return errors.Wrap(Client.Update(gotCM, false), "failed to update TF configuration ConfigMap")
 	}
 	return nil
 }

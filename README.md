@@ -201,7 +201,103 @@ Let's check if terraform worked fine
         }
     }
 
-### (7) Deleting Configuration for destroying to Teraform Core
+### (7) Updating Configuration for applying main.tf to Teraform Core
+
+Let's change quantiites (2->3, 2->1) in configuration
+And then, you can confirm content of configuration as following
+
+    $ cd ..
+    $ cat examples/hashicups/configuration.yaml 
+
+    kind: Configuration
+    metadata:
+      name: sample-configuration
+      namespace: default
+    spec:
+      hcl: |-
+        resource "hashicups_order" "edu" {
+          items {
+            coffee {
+              id = 3
+            }
+            quantity = 3
+          }
+          items {
+            coffee {
+              id = 2
+            }
+            quantity = 1
+          }
+        }
+
+        output "edu_order" {
+          value = hashicups_order.edu
+        }
+      providerRef:
+        name: hashicups
+        namespace: default
+
+After converting yaml file to json format, you need to handle for updating configuration via PUT method
+
+    $ yq . -o json examples/hashicups/configuration.yaml | curl -X PUT http://localhost:10000/configuration/default/sample-configuration  -d @- | jq .
+
+    {
+      "kind": "Configuration",
+      "metadata": {
+        "name": "sample-configuration",
+        "namespace": "default",
+        "creationTimestamp": null
+      },
+      "spec": {
+        "hcl": "resource \"hashicups_order\" \"edu\" {\n  items {\n    coffee {\n      id = 3\n    }\n    quantity = 3\n  }\n  items {\n    coffee {\n      id = 2\n    }\n    quantity = 1\n  }\n}\n\noutput \"edu_order\" {\n  value = hashicups_order.edu\n}",
+        "providerRef": {
+          "name": "hashicups",
+          "namespace": "default"
+        }
+      },
+      "status": {
+        "apply": {},
+        "destroy": {}
+      }
+    }
+
+### (8) Confirming result of terraform apply
+
+Let's check if terraform worked fine
+
+    $ cd work
+    $ terraform state show hashicups_order.edu
+
+    # hashicups_order.edu:
+    resource "hashicups_order" "edu" {
+        id           = "7"
+        last_updated = "Thursday, 01-Sep-22 14:57:56 JST"
+
+        items {
+            quantity = 3
+
+            coffee {
+                id     = 3
+                image  = "/nomad.png"
+                name   = "Nomadicano"
+                price  = 150
+                teaser = "Drink one today and you will want to schedule another"
+            }
+        }
+        items {
+            quantity = 1
+
+            coffee {
+                id     = 2
+                image  = "/vault.png"
+                name   = "Vaulatte"
+                price  = 200
+                teaser = "Nothing gives you a safe and secure feeling like a Vaulatte"
+            }
+        }
+    }
+
+### (9) Deleting Configuration for destroying to Teraform Core
 
 You need to handle for deleting configuration via DELETE method
 
@@ -209,7 +305,7 @@ You need to handle for deleting configuration via DELETE method
     $ curl -X GET http://localhost:10000/configurations
     null
 
-### (8) Confirming result of terraform destroy
+### (10) Confirming result of terraform destroy
 
 Let's check if terraform worked fine
 

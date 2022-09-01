@@ -66,7 +66,7 @@ func updateConfiguration(w http.ResponseWriter, r *http.Request, clientState cac
 		var configuration types.Configuration
 		json.Unmarshal(reqBody, &configuration)
 		if name == configuration.ObjectMeta.Name && namespace == configuration.ObjectMeta.Namespace {
-			clientState.Update(&configuration)
+			clientState.Update(&configuration, true)
 			json.NewEncoder(w).Encode(configuration)
 		} else {
 			w.WriteHeader(http.StatusBadRequest)

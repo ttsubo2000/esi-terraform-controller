@@ -38,7 +38,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req Request, indexer
 		provider.Status.State = types.ProviderIsNotReady
 		provider.Status.Message = fmt.Sprintf("%s: %s", errGetCredentials, err.Error())
 		klog.ErrorS(err, errGetCredentials, "Provider", req.NamespacedName)
-		if updateErr := r.Client.Update(provider); updateErr != nil {
+		if updateErr := r.Client.Update(provider, false); updateErr != nil {
 			klog.ErrorS(updateErr, errSettingStatus, "Provider", req.NamespacedName)
 			return Result{}, errors.Wrap(updateErr, errSettingStatus)
 		}
@@ -48,7 +48,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req Request, indexer
 	provider.Status = types.ProviderStatus{
 		State: types.ProviderIsReady,
 	}
-	if updateErr := r.Client.Update(provider); updateErr != nil {
+	if updateErr := r.Client.Update(provider, false); updateErr != nil {
 		klog.ErrorS(updateErr, errSettingStatus, "Provider", req.NamespacedName)
 		return Result{}, errors.Wrap(updateErr, errSettingStatus)
 	}
