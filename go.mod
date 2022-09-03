@@ -1,4 +1,4 @@
-module github.com/ttsubo2000/esi-terraform-worker
+module github.com/ttsubo2000/terraform-controller
 
 go 1.17
 

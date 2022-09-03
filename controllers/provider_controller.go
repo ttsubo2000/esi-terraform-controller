@@ -8,9 +8,9 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/ttsubo/client-go/tools/cache"
-	providercred "github.com/ttsubo2000/esi-terraform-worker/controllers/provider"
-	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
-	"github.com/ttsubo2000/esi-terraform-worker/types"
+	providercred "github.com/ttsubo2000/terraform-controller/controllers/provider"
+	cacheObj "github.com/ttsubo2000/terraform-controller/tools/cache"
+	"github.com/ttsubo2000/terraform-controller/types"
 )
 
 const (

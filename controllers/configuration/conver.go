@@ -24,7 +24,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	"github.com/ttsubo2000/esi-terraform-worker/types"
+	"github.com/ttsubo2000/terraform-controller/types"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 

@@ -5,11 +5,11 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/ttsubo2000/esi-terraform-worker/controllers"
-	"github.com/ttsubo2000/esi-terraform-worker/manager"
-	"github.com/ttsubo2000/esi-terraform-worker/rest"
-	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
-	"github.com/ttsubo2000/esi-terraform-worker/types"
+	"github.com/ttsubo2000/terraform-controller/controllers"
+	"github.com/ttsubo2000/terraform-controller/manager"
+	"github.com/ttsubo2000/terraform-controller/rest"
+	cacheObj "github.com/ttsubo2000/terraform-controller/tools/cache"
+	"github.com/ttsubo2000/terraform-controller/types"
 )
 
 func main() {

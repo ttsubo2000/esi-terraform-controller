@@ -22,11 +22,11 @@ import (
 	crossplane "github.com/oam-dev/terraform-controller/api/types/crossplane-runtime"
 	"github.com/pkg/errors"
 	"github.com/ttsubo/client-go/tools/cache"
-	tfcfg "github.com/ttsubo2000/esi-terraform-worker/controllers/configuration"
-	"github.com/ttsubo2000/esi-terraform-worker/controllers/provider"
-	"github.com/ttsubo2000/esi-terraform-worker/controllers/util"
-	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
-	"github.com/ttsubo2000/esi-terraform-worker/types"
+	tfcfg "github.com/ttsubo2000/terraform-controller/controllers/configuration"
+	"github.com/ttsubo2000/terraform-controller/controllers/provider"
+	"github.com/ttsubo2000/terraform-controller/controllers/util"
+	cacheObj "github.com/ttsubo2000/terraform-controller/tools/cache"
+	"github.com/ttsubo2000/terraform-controller/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

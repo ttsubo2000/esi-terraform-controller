@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
+	cacheObj "github.com/ttsubo2000/terraform-controller/tools/cache"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

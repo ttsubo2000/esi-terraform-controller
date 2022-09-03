@@ -1,6 +1,6 @@
-# esi-terraform-worker
+# terraform-controller
 
-This page help you confirming of how esi-terraform-worker using terraform-provider-hashicups works as this tutorial
+This page help you confirming of how terraform-controller using terraform-provider-hashicups works as this tutorial
 
 ## Prerequisites
 
@@ -22,16 +22,12 @@ Create new HashiCups user
 
     curl -X POST localhost:19090/signup -d '{"username":"education", "password":"test123"}'
 
-### (2) Starting esi-terraform-worker as following
+### (2) Starting terraform-controller as following
 
     $ go run main.go
 
     I0826 17:17:05.661724   80521 controller.go:97] Starting  provider controller
     I0826 17:17:05.661721   80521 controller.go:97] Starting  configuration controller
-    I0826 17:17:06.662009   80521 store.go:104] Update key:[Secret/hashicups/hashicups-account-creds], obj:[&{{Secret } {hashicups-account-creds  hashicups    0 0001-01-01 00:00:00 +0000 UTC <nil> <nil> map[] map[] [] []  []} <nil> map[credentials:HashicupsUser: education
-    HashicupsPassword: test123] map[] }]
-    I0826 17:17:07.662614   80521 store.go:98] Update key:[Provider/default/hashicups], obj:[&{{Provider } {hashicups  default    0 0001-01-01 00:00:00 +0000 UTC <nil> <nil> map[] map[] [] []  []} {hashicups  {Secret {{hashicups-account-creds hashicups} credentials}}} { }}]
-    I0826 17:17:07.662913   80521 provider_controller.go:26] "reconciling Terraform Provider..." NamespacedName="default/hashicups"
 
 ### (3) Creating Secret for credential
 

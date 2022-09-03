@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
+	cacheObj "github.com/ttsubo2000/terraform-controller/tools/cache"
 	"k8s.io/klog/v2"
 )
 

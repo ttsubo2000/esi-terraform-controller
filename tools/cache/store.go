@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ttsubo/client-go/tools/cache"
-	"github.com/ttsubo2000/esi-terraform-worker/types"
+	"github.com/ttsubo2000/terraform-controller/types"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"

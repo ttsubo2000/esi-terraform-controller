@@ -9,7 +9,7 @@ import (
 
 	"github.com/ttsubo/client-go/tools/cache"
 	"github.com/ttsubo/client-go/util/workqueue"
-	cacheObj "github.com/ttsubo2000/esi-terraform-worker/tools/cache"
+	cacheObj "github.com/ttsubo2000/terraform-controller/tools/cache"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 

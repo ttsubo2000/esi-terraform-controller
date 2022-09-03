@@ -9,7 +9,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/ttsubo2000/esi-terraform-worker/controllers"
+	"github.com/ttsubo2000/terraform-controller/controllers"
 )
 
 //var onlyOneSignalHandler = make(chan struct{})
