@@ -22,3 +22,15 @@ func DecompressTerraformStateSecret(data string) ([]byte, error) {
 	}
 	return b.Bytes(), nil
 }
+
+func CompressTerraformStateSecret(data []byte) ([]byte, error) {
+	b := new(bytes.Buffer)
+	gz := gzip.NewWriter(b)
+	if _, err := gz.Write(data); err != nil {
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}

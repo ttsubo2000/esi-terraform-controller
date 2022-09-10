@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
@@ -586,11 +587,34 @@ func (meta *TFConfigurationMeta) assembleAndTriggerJob(ctx context.Context, Clie
 		if err != nil {
 			return err
 		}
+		// Storing tfstate into Secret resource
+		tfstate, err := ioutil.ReadFile("/tmp/terraform.tfstate")
+		if err != nil {
+			return err
+		}
+		payload, err := util.CompressTerraformStateSecret(tfstate)
+		data := make(map[string]string)
+		data["tfstate"] = string(payload)
+		var secret = &types.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      meta.BackendSecretName,
+				Namespace: meta.TerraformBackendNamespace,
+			},
+			TypeMeta: metav1.TypeMeta{Kind: "Secret"},
+			Data:     data,
+		}
+		err = Client.Add(secret)
+		if err != nil {
+			return err
+		}
 	} else if executionType == "destroy" {
 		err = tf.Destroy(ctx)
 		if err != nil {
 			return err
 		}
+	}
+	if err := meta.updateApplyStatus(ctx, Client, types.Available, types.MessageCloudResourceDeployed); err != nil {
+		return err
 	}
 	return nil
 }
@@ -640,7 +664,7 @@ type TFState struct {
 }
 
 func (meta *TFConfigurationMeta) getTFOutputs(ctx context.Context, Client cacheObj.Store, configuration *types.Configuration) (map[string]types.Property, error) {
-	var s = types.Secret{}
+	var s *types.Secret
 
 	key := "Secret" + "/" + meta.TerraformBackendNamespace + "/" + meta.BackendSecretName
 	obj, exists, err := Client.GetByKey(key)
@@ -649,7 +673,7 @@ func (meta *TFConfigurationMeta) getTFOutputs(ctx context.Context, Client cacheO
 		klog.ErrorS(err, errMsg, "key", key)
 		return nil, errors.Wrap(err, errMsg)
 	}
-	s = obj.(types.Secret)
+	s = obj.(*types.Secret)
 	tfStateData, ok := s.Data[TerraformStateNameInSecret]
 	if !ok {
 		return nil, fmt.Errorf("failed to get %s from Terraform State secret %s", TerraformStateNameInSecret, s.Name)
@@ -691,7 +715,7 @@ func (meta *TFConfigurationMeta) getTFOutputs(ctx context.Context, Client cacheO
 	key = "Secret" + "/" + ns + "/" + name
 	obj, exists, err = Client.GetByKey(key)
 	if err != nil || !exists {
-		var secret = types.Secret{
+		var secret = &types.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: ns,
@@ -704,7 +728,7 @@ func (meta *TFConfigurationMeta) getTFOutputs(ctx context.Context, Client cacheO
 			TypeMeta: metav1.TypeMeta{Kind: "Secret"},
 			Data:     data,
 		}
-		err = Client.Add(&secret)
+		err = Client.Add(secret)
 		if err != nil {
 			return nil, fmt.Errorf("secret(%s) already exists", name)
 		}
